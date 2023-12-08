@@ -1,6 +1,6 @@
 # ALife-Honours
 Edinburgh Napier University honours project.  
-Games development 40310835.  
-BLOG: [ALife Blog](https://40310835.wixsite.com/alife-blog)  
+Games development 
 
-More info to follow...
+This repository is for storing research results that are used in NetLogo software.
+More information to follow...
