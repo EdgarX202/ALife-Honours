@@ -2,5 +2,5 @@
 Edinburgh Napier University honours project.  
 Games development 
 
-This repository is for storing research results that are used in NetLogo software.
+This repository is for storing NetLogo models.
 More information to follow...
