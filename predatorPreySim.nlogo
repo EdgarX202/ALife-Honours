@@ -1,4 +1,4 @@
-;; 35x35 Grid with 9 pixel patches - Implementing sugarscape
+;; 51x51 Grid with 6 pixel patches - Implementing sugarscape
 
 ;; Global variables
 globals [
@@ -104,13 +104,13 @@ to regrow-sugar
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-332
-33
-981
-683
+382
+10
+1008
+637
 -1
 -1
-9.0
+6.0
 1
 10
 1
@@ -120,10 +120,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--35
-35
--35
-35
+-51
+51
+-51
+51
 0
 0
 1
@@ -131,10 +131,10 @@ ticks
 30.0
 
 BUTTON
-137
-62
-205
-96
+202
+35
+270
+69
 NIL
 go
 T
@@ -148,10 +148,10 @@ NIL
 0
 
 BUTTON
-218
-62
-293
-98
+283
+35
+358
+71
 go-once
 go
 NIL
@@ -165,25 +165,25 @@ NIL
 0
 
 SLIDER
-18
-245
-150
-279
+0
+214
+132
+247
 initial-prey-number
 initial-prey-number
 0
 100
-30.0
+20.0
 1
 1
 NIL
 HORIZONTAL
 
 SWITCH
-24
-555
-143
-588
+0
+368
+119
+401
 sugar-count?
 sugar-count?
 0
@@ -191,25 +191,25 @@ sugar-count?
 -1000
 
 SLIDER
-25
-599
-158
-633
+0
+411
+133
+444
 sugar-from-patch
 sugar-from-patch
 0
 100
-3.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-1002
-35
-1367
-298
+1028
+28
+1393
+291
 Sugar-Prey Stats
 Time
 Total
@@ -227,10 +227,10 @@ PENS
 "Birth" 1.0 0 -13840069 true "" "plot birth-count"
 
 SLIDER
-18
-160
-147
-194
+0
+129
+129
+162
 prey-max-initial-sugar
 prey-max-initial-sugar
 0
@@ -242,10 +242,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-1002
-309
-1092
-355
+1028
+302
+1118
+347
 Total Preys
 count preys
 17
@@ -253,10 +253,10 @@ count preys
 11
 
 SLIDER
-18
-202
-180
-236
+0
+171
+162
+204
 max-sugar-for-reproduction
 max-sugar-for-reproduction
 1.0
@@ -268,10 +268,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-24
-62
-88
-96
+90
+34
+154
+68
 NIL
 setup
 NIL
@@ -285,10 +285,10 @@ NIL
 1
 
 MONITOR
-1103
-309
-1195
-355
+1129
+302
+1221
+347
 Total Sugar
 count patches with [pcolor = yellow]
 17
@@ -296,30 +296,30 @@ count patches with [pcolor = yellow]
 11
 
 TEXTBOX
-58
-130
-105
-150
+40
+99
+87
+119
 PREYS
 15
 0.0
 1
 
 TEXTBOX
-202
-129
-294
-149
+239
+98
+331
+118
 PREDATORS
 15
 0.0
 1
 
 MONITOR
-1206
-310
-1296
-356
+1232
+303
+1322
+348
 Total Deaths
 death-count
 17
@@ -327,10 +327,10 @@ death-count
 11
 
 MONITOR
-1207
-369
-1297
-415
+1233
+362
+1323
+407
 Total Born
 birth-count
 17
@@ -338,10 +338,10 @@ birth-count
 11
 
 SLIDER
-25
-645
-198
-679
+0
+458
+173
+491
 maxSugarCap
 maxSugarCap
 0
