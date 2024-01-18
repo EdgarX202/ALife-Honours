@@ -1,4 +1,4 @@
-;; 51x51 Grid with 6 pixel patches - Implementing sugarscape
+;; 51x51 Grid with 5 pixel patches and 60fps - Implementing sugarscape
 
 ;; Global variables
 globals [
@@ -13,6 +13,10 @@ breed [ preys prey ]
 ;; Properties(associated with agents/patches). turtles-own means shared properties for all turtles.
 patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
+]
+
+turtles-own [
+  vision ;; Variable for vision
 ]
 
 
@@ -40,30 +44,38 @@ to go
     reproduce-prey
     check-death
   ]
-
   regrow-sugar
   tick ;; Increase the tick counter by 1 each time
 end
 
 ;; Move the turtle
 to move
-  rt random 50 ;; Right turn
-  lt random 50 ;; Left turn
-  fd 1 ;; Forward
+  let best-patch min-one-of patches in-cone vision 50 [ sugar ]
+  if best-patch != nobody [
+    ifelse random 100 < random-movement-chance [  ;; Move randomly
+      rt random 50 ;; Right turn
+      lt random 50 ;; Left turn
+      fd 1 ;; Forward
+    ] [
+      face best-patch  ;; Face the patch with most sugar
+      fd 1
+    ]
+  ]
 end
 
 ;; Patches
 to setup-patches
   ask patches [
-    set pcolor yellow ;; Iterate over all patches and set color to yellow
     set sugar random 100 ;; Random distribution of sugar
+    set pcolor yellow
+    ;;set pcolor scale-color yellow sugar 150 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
   ]
 end
 
 ;; Eating sugar
 to eat-sugar-prey
   ask preys [
-    ifelse sugar < maxSugarCap [
+    if sugar < maxSugarCap [
     if pcolor = yellow [
       set pcolor black
       set sugar (sugar + sugar-from-patch) ;; How much sugar is added to prey from eating (slider)
@@ -71,7 +83,7 @@ to eat-sugar-prey
     [ set label sugar ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
       ]
-    ]  [ stop ]
+    ]  ;;[ stop ]
   ]
 end
 
@@ -99,18 +111,18 @@ end
 ;; New sugar growth
 to regrow-sugar
   ask patches [
-    if random 100 < 2 [ set pcolor yellow ] ;; 2 out of 100 times, the patch color is set to yellow
-  ]
+    set pcolor yellow
+    ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-382
-10
-1008
-637
+322
+14
+845
+538
 -1
 -1
-6.0
+5.0
 1
 10
 1
@@ -128,13 +140,13 @@ GRAPHICS-WINDOW
 0
 1
 ticks
-30.0
+60.0
 
 BUTTON
-202
-35
-270
-69
+144
+32
+212
+66
 NIL
 go
 T
@@ -148,10 +160,10 @@ NIL
 0
 
 BUTTON
-283
-35
-358
-71
+225
+32
+300
+68
 go-once
 go
 NIL
@@ -173,7 +185,7 @@ initial-prey-number
 initial-prey-number
 0
 100
-20.0
+10.0
 1
 1
 NIL
@@ -199,17 +211,17 @@ sugar-from-patch
 sugar-from-patch
 0
 100
-2.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-1028
-28
-1393
-291
+889
+21
+1254
+284
 Sugar-Prey Stats
 Time
 Total
@@ -235,17 +247,17 @@ prey-max-initial-sugar
 prey-max-initial-sugar
 0
 100
-3.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-1028
-302
-1118
-347
+889
+295
+979
+340
 Total Preys
 count preys
 17
@@ -261,17 +273,17 @@ max-sugar-for-reproduction
 max-sugar-for-reproduction
 1.0
 100
-60.0
+70.0
 1.0
 1
 NIL
 HORIZONTAL
 
 BUTTON
-90
-34
-154
-68
+32
+31
+96
+65
 NIL
 setup
 NIL
@@ -285,10 +297,10 @@ NIL
 1
 
 MONITOR
-1129
-302
-1221
-347
+990
+295
+1082
+340
 Total Sugar
 count patches with [pcolor = yellow]
 17
@@ -296,30 +308,30 @@ count patches with [pcolor = yellow]
 11
 
 TEXTBOX
-40
-99
-87
-119
+36
+94
+83
+114
 PREYS
 15
 0.0
 1
 
 TEXTBOX
-239
-98
-331
-118
+208
+99
+300
+119
 PREDATORS
 15
 0.0
 1
 
 MONITOR
-1232
-303
-1322
-348
+1093
+296
+1183
+341
 Total Deaths
 death-count
 17
@@ -327,10 +339,10 @@ death-count
 11
 
 MONITOR
-1233
-362
-1323
-407
+1094
+355
+1184
+400
 Total Born
 birth-count
 17
@@ -346,7 +358,22 @@ maxSugarCap
 maxSugarCap
 0
 200
-100.0
+90.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+0
+505
+175
+538
+random-movement-chance
+random-movement-chance
+0
+100
+50.0
 1
 1
 NIL
