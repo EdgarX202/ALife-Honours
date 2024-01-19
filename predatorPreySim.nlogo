@@ -1,4 +1,4 @@
-;; 51x51 Grid with 5 pixel patches and 60fps - Implementing sugarscape
+;; 51x51 Grid with 5 pixel patches and 60fps - Predator/Prey
 
 ;; Global variables
 globals [
@@ -13,27 +13,50 @@ breed [ preys prey ]
 ;; Properties(associated with agents/patches). turtles-own means shared properties for all turtles.
 patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
+  grow-back ;; Re-grow sugar patches if its less than 10
 ]
 
 turtles-own [
-  vision ;; Variable for vision
+  vision ;; Variable for setting how far turtles can see
+  prey-sugar ;; The amount of sugar that prey has
 ]
-
 
 ;; Setup
 to setup
   clear-all ;; Reset the simulation environment
   setup-patches ;; Define characteristics of the patches
 
+  ;; Prey setup
   set-default-shape preys "circle" ;; Setting the shape of preys
   create-preys initial-prey-number [ ;; Create preys, set initial number using the slider
     set color blue ;; Colour of the prey
     set size 1 ;; Slightly larger so it was easier to see
-    set sugar 1 + random prey-max-initial-sugar ;; Starting amount of sugar
-    setxy random-xcor random-ycor
+    set vision 50 ;; Set turtle vision for finding sugar
+    set prey-sugar random 25 + 1 ;; Starting amount of sugar between 1-25
+    setxy random-xcor random-ycor ;; Spawn at random locations
   ]
 
+  ;; Predator setup
+
   reset-ticks ;; Reset the tick count
+end
+
+;; Patches
+to setup-patches
+  ask patches [
+    set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
+    set grow-back random 6 + 1
+    set pcolor yellow;
+    ;;set pcolor scale-color yellow sugar 70 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
+  ]
+end
+
+to update-patches
+  ask patches [update-patch]
+end
+
+to update-patch
+  regrow-sugar
 end
 
 ;; Start the simulation button
@@ -42,58 +65,57 @@ to go
     move
     eat-sugar-prey
     reproduce-prey
-    check-death
   ]
-  regrow-sugar
+  update-patches
   tick ;; Increase the tick counter by 1 each time
 end
 
 ;; Move the turtle
 to move
-  let best-patch min-one-of patches in-cone vision 50 [ sugar ]
-  if best-patch != nobody [
-    ifelse random 100 < random-movement-chance [  ;; Move randomly
+  let best-patch max-one-of patches in-cone vision 50 [ sugar ] ;; Find a patch with most sugar within radius
+  if best-patch != nobody [ ;; If the patch is found
+    ifelse random 100 < 45 [  ;; Random movement chance
       rt random 50 ;; Right turn
       lt random 50 ;; Left turn
       fd 1 ;; Forward
+      set prey-sugar prey-sugar - 2 ;; Consume 2 sugar after move
+      check-death
     ] [
       face best-patch  ;; Face the patch with most sugar
-      fd 1
+      fd 1 ;; Forward
+      set prey-sugar prey-sugar - 2 ;; Consume 2 sugar after move
+      check-death
     ]
-  ]
-end
-
-;; Patches
-to setup-patches
-  ask patches [
-    set sugar random 100 ;; Random distribution of sugar
-    set pcolor yellow
-    ;;set pcolor scale-color yellow sugar 150 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
   ]
 end
 
 ;; Eating sugar
 to eat-sugar-prey
   ask preys [
-    if sugar < maxSugarCap [
+    if prey-sugar < maxSugarCap [
     if pcolor = yellow [
       set pcolor black
-      set sugar (sugar + sugar-from-patch) ;; How much sugar is added to prey from eating (slider)
+        let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - prey-sugar))
+        set prey-sugar (prey-sugar + [sugar] of patch-here) ;; How much sugar is added to prey from eating (slider)
+        ask patch-here [ set sugar sugar - sugar-consumed ]
     ifelse sugar-count?
-    [ set label sugar ] ;; The label is set to be the value of sugar
+    [ set label prey-sugar ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
       ]
-    ]  ;;[ stop ]
+    ]
   ]
 end
 
 ;; Reproduce preys
 to reproduce-prey
   ask preys [
-  if sugar > max-sugar-for-reproduction [  ;; If collected sugar reaches amount for reproduction(slider)
-    set sugar (sugar / 2)                ;; Divide the energy between parent and offspring
+  if prey-sugar > 60 [  ;; If collected sugar is above 60
+    set prey-sugar int (prey-sugar / 2) ;; Divide the energy between parent and offspring
     set birth-count (birth-count + 1) ;; Count how many are born
-    hatch 1 [ rt random-float 360 fd 1 ]   ;; Hatch an offspring and move it forward 1 step
+    hatch int (1) [ rt random-float 360 fd 1 ]   ;; Hatch an offspring and move it forward 1 step
+      ifelse sugar-count?
+    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+    [set label "" ] ;; The label is set to an empty text value
   ]
   ]
 end
@@ -101,7 +123,7 @@ end
 ;; Death
 to check-death
   ask preys [
-    if sugar <= 0 [
+    if prey-sugar <= 0 [
    set death-count (death-count + 1) ;; Death count + 1 after death
    die ;; Remove the turtle
     ]
@@ -110,9 +132,10 @@ end
 
 ;; New sugar growth
 to regrow-sugar
-  ask patches [
-    set pcolor yellow
-    ]
+  if sugar < 10 ;; If a patch has less than 10 sugar
+  [ set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar amount by "grow-back" amount, cap sugar amount at 100 not to exceed
+  set pcolor green
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -178,14 +201,14 @@ NIL
 
 SLIDER
 0
-214
+170
 132
-247
+203
 initial-prey-number
 initial-prey-number
 0
 100
-10.0
+1.0
 1
 1
 NIL
@@ -201,21 +224,6 @@ sugar-count?
 0
 1
 -1000
-
-SLIDER
-0
-411
-133
-444
-sugar-from-patch
-sugar-from-patch
-0
-100
-1.0
-1
-1
-NIL
-HORIZONTAL
 
 PLOT
 889
@@ -238,21 +246,6 @@ PENS
 "Deaths" 1.0 0 -5298144 true "" "plot death-count"
 "Birth" 1.0 0 -13840069 true "" "plot birth-count"
 
-SLIDER
-0
-129
-129
-162
-prey-max-initial-sugar
-prey-max-initial-sugar
-0
-100
-1.0
-1
-1
-NIL
-HORIZONTAL
-
 MONITOR
 889
 295
@@ -263,21 +256,6 @@ count preys
 17
 1
 11
-
-SLIDER
-0
-171
-162
-204
-max-sugar-for-reproduction
-max-sugar-for-reproduction
-1.0
-100
-70.0
-1.0
-1
-NIL
-HORIZONTAL
 
 BUTTON
 32
@@ -358,22 +336,7 @@ maxSugarCap
 maxSugarCap
 0
 200
-90.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-0
-505
-175
-538
-random-movement-chance
-random-movement-chance
-0
-100
-50.0
+100.0
 1
 1
 NIL
