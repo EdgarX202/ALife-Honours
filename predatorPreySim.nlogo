@@ -1,9 +1,16 @@
 ;; 51x51 Grid with 5 pixel patches and 60fps - Predator/Prey
+;; Carrying capacity 500
+;; Sugar level reach for reproduction 89
+;; Re-grow patches if less than 10 sugar
+;; Cone vision 50 degrees
+;; 50% chance to move left or right
+;; Agent move cost 5 sugar
 
 ;; Global variables
 globals [
   death-count
   birth-count
+  sugar-regrowth-delay
 ]
 
 ;; Define predator/prey classes of agents
@@ -14,6 +21,7 @@ breed [ preys prey ]
 patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
   grow-back ;; Re-grow sugar patches if its less than 10
+  last-consumed ;; Variable for delaying sugar regrowth
 ]
 
 turtles-own [
@@ -45,7 +53,8 @@ end
 to setup-patches
   ask patches [
     set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
-    set grow-back random 6 + 1
+    set grow-back random 25 + 1 ;; Sugar grow-back 1-25
+    set last-consumed 0
     set pcolor yellow;
     ;;set pcolor scale-color yellow sugar 70 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
   ]
@@ -56,7 +65,10 @@ to update-patches
 end
 
 to update-patch
-  regrow-sugar
+  if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
+    set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
+    set pcolor yellow;
+  ]
 end
 
 ;; Start the simulation button
@@ -78,13 +90,19 @@ to move
       rt random 50 ;; Right turn
       lt random 50 ;; Left turn
       fd 1 ;; Forward
-      set prey-sugar prey-sugar - 2 ;; Consume 2 sugar after move
+      set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
       check-death
+      ifelse sugar-count?
+    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+    [set label "" ] ;; The label is set to an empty text value
     ] [
       face best-patch  ;; Face the patch with most sugar
       fd 1 ;; Forward
-      set prey-sugar prey-sugar - 2 ;; Consume 2 sugar after move
+      set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
       check-death
+      ifelse sugar-count?
+    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+    [set label "" ] ;; The label is set to an empty text value
     ]
   ]
 end
@@ -97,7 +115,9 @@ to eat-sugar-prey
       set pcolor black
         let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - prey-sugar))
         set prey-sugar (prey-sugar + [sugar] of patch-here) ;; How much sugar is added to prey from eating (slider)
-        ask patch-here [ set sugar sugar - sugar-consumed ]
+        ask patch-here [ set sugar sugar - sugar-consumed ;; Subtract the consumed amount of sugar from patch
+                         set last-consumed ticks ;; Update timer
+        ]
     ifelse sugar-count?
     [ set label prey-sugar ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
@@ -109,7 +129,7 @@ end
 ;; Reproduce preys
 to reproduce-prey
   ask preys [
-  if prey-sugar > 60 [  ;; If collected sugar is above 60
+  if prey-sugar > 89 and count preys < carrying-capacity [  ;; If collected sugar is above 89 and carrying capacity is not max
     set prey-sugar int (prey-sugar / 2) ;; Divide the energy between parent and offspring
     set birth-count (birth-count + 1) ;; Count how many are born
     hatch int (1) [ rt random-float 360 fd 1 ]   ;; Hatch an offspring and move it forward 1 step
@@ -127,14 +147,6 @@ to check-death
    set death-count (death-count + 1) ;; Death count + 1 after death
    die ;; Remove the turtle
     ]
-  ]
-end
-
-;; New sugar growth
-to regrow-sugar
-  if sugar < 10 ;; If a patch has less than 10 sugar
-  [ set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar amount by "grow-back" amount, cap sugar amount at 100 not to exceed
-  set pcolor green
   ]
 end
 @#$#@#$#@
@@ -208,7 +220,7 @@ initial-prey-number
 initial-prey-number
 0
 100
-1.0
+2.0
 1
 1
 NIL
@@ -337,6 +349,21 @@ maxSugarCap
 0
 200
 100.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+0
+413
+172
+446
+carrying-capacity
+carrying-capacity
+0
+1500
+500.0
 1
 1
 NIL
