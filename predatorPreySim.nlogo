@@ -53,7 +53,7 @@ end
 to setup-patches
   ask patches [
     set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
-    set grow-back random 25 + 1 ;; Sugar grow-back 1-25
+    set grow-back random 50 + 1 ;; Sugar grow-back 1-50
     set last-consumed 0
     set pcolor yellow;
     ;;set pcolor scale-color yellow sugar 70 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
@@ -91,6 +91,7 @@ to move
       lt random 50 ;; Left turn
       fd 1 ;; Forward
       set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
+      set color scale-color blue prey-sugar 200 0
       check-death
       ifelse sugar-count?
     [ set label prey-sugar ] ;; The label is set to be the value of sugar
@@ -99,6 +100,7 @@ to move
       face best-patch  ;; Face the patch with most sugar
       fd 1 ;; Forward
       set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
+       set color scale-color blue prey-sugar 200 0
       check-death
       ifelse sugar-count?
     [ set label prey-sugar ] ;; The label is set to be the value of sugar
