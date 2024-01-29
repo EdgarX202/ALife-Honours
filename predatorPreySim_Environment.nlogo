@@ -22,6 +22,7 @@ patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
   grow-back ;; Re-grow sugar patches if its less than 10
   last-consumed ;; Variable for delaying sugar regrowth
+  burned
 ]
 
 turtles-own [
@@ -56,8 +57,8 @@ to setup-patches
     set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
     set grow-back random 50 + 1 ;; Sugar grow-back 1-50
     set last-consumed 0
-    set pcolor yellow;
-    ;;set pcolor scale-color yellow sugar 70 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
+    set pcolor yellow
+    set burned false
   ]
 end
 
@@ -66,10 +67,17 @@ to update-patches
 end
 
 to update-patch
-  if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
-    set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
-    set pcolor yellow;
-  ]
+  if not burned and sugar > 0 [  ; Only affect patches with sugar and not yet burned
+if random 100 < 5 [  ; 5% chance of fire starting on any patch with sugar each tick
+set burned true
+set pcolor red
+]
+]
+
+  ;if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
+   ; set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
+   ; set pcolor yellow;
+  ;]
 end
 
 ;; Start the simulation button
