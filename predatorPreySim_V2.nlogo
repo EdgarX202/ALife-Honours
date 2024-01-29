@@ -1,163 +1,220 @@
-;; 51x51 Grid with 5 pixel patches and 60fps - Predator/Prey
-;; Carrying capacity 500
-;; Sugar level reach for reproduction 89
-;; Re-grow patches if less than 10 sugar
-;; Cone vision 50 degrees
-;; 50% chance to move left or right
-;; Agent move cost 5 sugar
+;; 51x51 Grid with 5 pixel patches and 60fps - Predator/Prey - SIMULATION WITH PREDATORS
+;; PREY - feed on sugar - carrying capacity 500 - reproduce at 89 sugar - cone vision at 50 degrees - 50% chance to move left/right - movement cost 5 sugar
+;; PREDATOR - feed on spice (or sugar) - carrying capacity ? - reproduce at ? energy - cone vision at ? degrees - ?% chance to move left/right - movement cost ? energy
+;; PATCHES - re-grow when less than 10 sugar and every 2nd tick.
 
 ;; Global variables
 globals [
-  death-count
-  birth-count
+  prey-death-count
+  prey-birth-count
+  predator-birth-count
+  predator-death-count
   sugar-regrowth-delay
 ]
 
-;; Define predator/prey agents
+;; Define predator/preys
 breed [ predators predator ]
 breed [ preys prey ]
 
 ;; Properties(associated with agents/patches). turtles-own means shared properties for all turtles.
 patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
-  grow-back ;; Re-grow sugar patches if its less than 10
-  last-consumed ;; Variable for delaying sugar regrowth
+  sugar-grow-back ;; Re-grow sugar patches if its less than 10
+  sugar-last-consumed ;; Variable for delaying sugar regrowth
 ]
 
 turtles-own [
   vision ;; Variable for setting how far turtles can see
-  prey-sugar ;; The amount of sugar that prey has
+  energy ;; The amount of energy turtles have
 ]
 
-;; Setup
+;; Setup Button
 to setup
   clear-all ;; Reset the simulation environment
-  setup-patches ;; Define characteristics of the patches
-
-  ;; Prey setup
-  set-default-shape preys "circle" ;; Setting the shape of preys
-  create-preys initial-prey-number [ ;; Create preys, set initial number using the slider
-    set color blue ;; Colour of the prey
-    set size 1 ;; Slightly larger so it was easier to see
-    set vision 50 ;; Set turtle vision for finding sugar
-    set prey-sugar random 20 + 1 ;; Starting amount of sugar between 1-20
-    setxy random-xcor random-ycor ;; Spawn at random locations
-  ]
-
-  ;; Predator setup
-
-
-  reset-ticks ;; Reset the tick count
+  setup-patches
+  setup-preys
+  setup-predators
+  reset-ticks
 end
 
-;; Patches
+;; PATCHES
 to setup-patches
   ask patches [
     set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
-    set grow-back random 50 + 1 ;; Sugar grow-back 1-50
-    set last-consumed 0
+    set sugar-grow-back random 50 + 1 ;; Sugar grow-back 1-50
+    set sugar-last-consumed 0
     set pcolor yellow;
-    ;;set pcolor scale-color yellow sugar 70 0 ;; Set patch color depending on how much sugar is there, from bright to darker yellow
+  ]
+end
+;; PREY
+to setup-preys
+  set-default-shape preys "circle" ;; Setting the shape of preys
+  create-preys initial-prey-number [ ;; Create preys, set initial number using a slider
+    set color blue ;; Colour of the prey
+    set size 1 ;; Size of the prey on screen
+    set vision 50 ;; Set turtle vision for finding sugar
+    set energy random 30 + 10 ;; Starting amount of energy between 10-40
+    setxy random-xcor random-ycor ;; Spawn at random locations
+  ]
+end
+;; PREDATOR
+to setup-predators
+  set-default-shape predators "square" ;; Setting the shape of predators
+  create-predators initial-predator-number [ ;; Create predators, set initial number using a slider
+    set color green ;; Colour of the predator
+    set size 1.5 ;; Size of the prey on screen
+    set vision 50 ;; Predator vision same as prey
+    set energy random 45 + 40 ;; Start with random energy between 40-85
+    setxy random-xcor random-ycor ;; Spawn at random locations
   ]
 end
 
+;; UPDATE PATCHES
 to update-patches
   ask patches [update-patch]
 end
-
 to update-patch
-  if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
-    set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
+   if sugar < 10 and ticks mod 2 = 0 and ticks >= sugar-last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
+    set sugar min (list 100 (sugar + sugar-grow-back)) ;; Increase sugar
     set pcolor yellow;
   ]
 end
 
 ;; Start the simulation button
 to go
+  if not any? turtles [ stop ] ;; Stop the simulation if no turtles are alive
   ask preys [
     move
-    eat-sugar-prey
-    reproduce-prey
+    eat-sugar
+    reproduction
   ]
+  ask predators [
+    pred-move
+    catch-prey
+    reproduction
+  ]
+
   update-patches
   tick ;; Increase the tick counter by 1 each time
 end
 
-;; Move the turtle
+;; MOVE PREY
 to move
   let best-patch max-one-of patches in-cone vision 50 [ sugar ] ;; Find a patch with most sugar within radius
   if best-patch != nobody [ ;; If the patch is found
-    ifelse random 100 < 45 [  ;; Random movement chance
+    ifelse random 100 < 50 [  ;; Random movement chance
       rt random 50 ;; Right turn
       lt random 50 ;; Left turn
       fd 1 ;; Forward
-      set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
-      set color scale-color blue prey-sugar 200 0
+      set energy energy - 5 ;; Consume 5 energy after a move
+      set color scale-color blue energy 200 0
       check-death
-      ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+      ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
     ] [
       face best-patch  ;; Face the patch with most sugar
       fd 1 ;; Forward
-      set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
-       set color scale-color blue prey-sugar 200 0
+      set energy energy - 5 ;; Consume 5 sugar after move
+       set color scale-color blue energy 200 0
       check-death
-      ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+      ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
     ]
   ]
 end
+;; MOVE PREDATOR
+to pred-move
+  ifelse random 100 < 50 [
+    rt random 50
+    lt random 50
+    fd 1
+  set energy energy - 5 ;; Consume 5 energy after a move
+  set color scale-color green energy 150 0
+   ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
+    [set label "" ] ;; The label is set to an empty text value
+  ] [
+    fd 1
+    set energy energy - 5 ;; Consume 5 energy after a move
+  set color scale-color green energy 150 0
+   ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
+    [set label "" ] ;; The label is set to an empty text value
+  ]
+end
 
-;; Eating sugar
-to eat-sugar-prey
+
+;; EAT SUGAR
+to eat-sugar
   ask preys [
-    if prey-sugar < maxSugarCap [
+    if energy < maxSugarCap [
     if pcolor = yellow [
       set pcolor black
-        let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - prey-sugar))
-        set prey-sugar (prey-sugar + [sugar] of patch-here) ;; How much sugar is added to prey from eating (slider)
+        let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - energy))
+        set energy (energy + [sugar] of patch-here) ;; How much sugar is added to prey from eating (slider)
         ask patch-here [ set sugar sugar - sugar-consumed ;; Subtract the consumed amount of sugar from patch
-                         set last-consumed ticks ;; Update timer
+                         set sugar-last-consumed ticks ;; Update timer
         ]
-    ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+    ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
       ]
     ]
   ]
 end
 
-;; Reproduce preys
-to reproduce-prey
+;; CATCH PREY
+to catch-prey
+
+end
+
+;; REPRODUCE
+to reproduction
   ask preys [
-  if prey-sugar > 89 and count preys < carrying-capacity [  ;; If collected sugar is above 89 and carrying capacity is not max
-    set prey-sugar int (prey-sugar / 2) ;; Divide the energy between parent and offspring
-    set birth-count (birth-count + 1) ;; Count how many are born
+  if energy > 89 and count preys < prey-carrying-capacity [  ;; If collected sugar is above 89 and carrying capacity is not max
+    set energy int (energy / 2) ;; Divide the energy between parent and offspring
+    set prey-birth-count (prey-birth-count + 1) ;; Count how many are born
     hatch int (1) [ rt random-float 360 fd 1 ]   ;; Hatch an offspring and move it forward 1 step
-      ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
+      ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
   ]
   ]
+  ask predators [
+    if energy > 89 and count predators < predator-carrying-capacity [
+      set energy int (energy / 2) ;; Divide the energy between parent and offspring
+    set predator-birth-count (predator-birth-count + 1) ;; Count how many are born
+    hatch int (1) [ rt random-float 360 fd 1 ]   ;; Hatch an offspring and move it forward 1 step
+      ifelse energy-count?
+    [ set label energy ] ;; The label is set to be the value of sugar
+    [set label "" ] ;; The label is set to an empty text value
+    ]
+  ]
 end
 
-;; Death
+;; DEATH
 to check-death
   ask preys [
-    if prey-sugar <= 0 [
-   set death-count (death-count + 1) ;; Death count + 1 after death
+    if energy <= 0 [
+   set prey-death-count (prey-death-count + 1) ;; Death count + 1 after death
+   die ;; Remove the turtle
+    ]
+  ]
+  ask predators [
+    if energy <= 0 [
+   set predator-death-count (predator-death-count + 1) ;; Death count + 1 after death
    die ;; Remove the turtle
     ]
   ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-322
 14
-845
-538
+10
+537
+534
 -1
 -1
 5.0
@@ -181,10 +238,10 @@ ticks
 60.0
 
 BUTTON
-144
-32
-212
-66
+1001
+10
+1069
+44
 NIL
 go
 T
@@ -198,10 +255,10 @@ NIL
 0
 
 BUTTON
-225
-32
-300
-68
+1077
+10
+1148
+44
 go-once
 go
 NIL
@@ -215,37 +272,37 @@ NIL
 0
 
 SLIDER
-0
-170
-132
-203
+1002
+73
+1134
+106
 initial-prey-number
 initial-prey-number
 0
 100
-2.0
+9.0
 1
 1
 NIL
 HORIZONTAL
 
 SWITCH
-0
-368
-119
-401
-sugar-count?
-sugar-count?
+1112
+250
+1240
+283
+energy-count?
+energy-count?
 1
 1
 -1000
 
 PLOT
-889
-21
-1254
-284
-Sugar-Prey Stats
+541
+10
+989
+177
+Sugar Monitor
 Time
 Total
 0.0
@@ -256,16 +313,15 @@ true
 true
 "" ""
 PENS
-"Preys" 1.0 0 -14454117 true "" "plot count preys"
 "Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = yellow]"
-"Deaths" 1.0 0 -5298144 true "" "plot death-count"
-"Birth" 1.0 0 -13840069 true "" "plot birth-count"
+"Predators" 1.0 0 -10402772 true "" "plot count predators"
+"Preys" 1.0 0 -14730904 true "" "plot count preys"
 
 MONITOR
-889
-295
-979
-340
+542
+193
+632
+238
 Total Preys
 count preys
 17
@@ -273,10 +329,10 @@ count preys
 11
 
 BUTTON
-32
-31
-96
-65
+1185
+10
+1249
+44
 NIL
 setup
 NIL
@@ -290,63 +346,43 @@ NIL
 1
 
 MONITOR
-990
-295
-1082
-340
-Total Sugar
+858
+214
+955
+259
+Sugar Available
 count patches with [pcolor = yellow]
 17
 1
 11
 
-TEXTBOX
-36
-94
-83
-114
-PREYS
-15
-0.0
-1
-
-TEXTBOX
-208
-99
-300
-119
-PREDATORS
-15
-0.0
-1
-
 MONITOR
-1093
-296
-1183
-341
-Total Deaths
-death-count
+732
+192
+824
+237
+Prey Deaths
+prey-death-count
 17
 1
 11
 
 MONITOR
-1094
-355
-1184
-400
-Total Born
-birth-count
+638
+192
+726
+237
+Prey Birth
+prey-birth-count
 17
 1
 11
 
 SLIDER
-0
-458
-173
-491
+1002
+250
+1108
+283
 maxSugarCap
 maxSugarCap
 0
@@ -358,12 +394,12 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-413
-172
-446
-carrying-capacity
-carrying-capacity
+1001
+162
+1167
+195
+prey-carrying-capacity
+prey-carrying-capacity
 0
 1500
 500.0
@@ -371,6 +407,90 @@ carrying-capacity
 1
 NIL
 HORIZONTAL
+
+SLIDER
+1002
+112
+1136
+145
+initial-predator-number
+initial-predator-number
+0
+100
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1001
+200
+1168
+233
+predator-carrying-capacity
+predator-carrying-capacity
+0
+1500
+500.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+638
+241
+726
+286
+Predators Born
+predator-birth-count
+17
+1
+11
+
+MONITOR
+732
+241
+824
+286
+Predators Death
+predator-death-count
+17
+1
+11
+
+MONITOR
+543
+241
+632
+286
+Total Predators
+count predators
+17
+1
+11
+
+PLOT
+542
+302
+999
+534
+Predator-Prey Monitor
+Time
+Count
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"Prey Birth" 1.0 0 -5516827 true "" "plot prey-birth-count"
+"Predator Birth" 1.0 0 -2570826 true "" "plot predator-birth-count"
+"Prey Death" 1.0 0 -14730904 true "" "plot prey-death-count"
+"Predator Death" 1.0 0 -14477296 true "" "plot predator-death-count "
 
 @#$#@#$#@
 ## WHAT IS IT?
