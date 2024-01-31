@@ -62,7 +62,7 @@ to setup-predators
   set-default-shape predators "square" ;; Setting the shape of predators
   create-predators initial-predator-number [ ;; Create predators, set initial number using a slider
     set color green ;; Colour of the predator
-    set size 1.5 ;; Size of the prey on screen
+    set size 1 ;; Size of the prey on screen
     set vision 50 ;; Predator vision same as prey
     set energy random 45 + 40 ;; Start with random energy between 40-85
     setxy random-xcor random-ycor ;; Spawn at random locations
@@ -90,7 +90,7 @@ to go
   ]
   ask predators [
     pred-move
-    catch-prey
+    eat-prey
     reproduction
   ]
 
@@ -126,12 +126,13 @@ to move
 end
 ;; MOVE PREDATOR
 to pred-move
-  ifelse random 100 < 50 [
+  ifelse random 100 < 50 [ ;; Random movement chance
     rt random 50
     lt random 50
     fd 1
   set energy energy - 5 ;; Consume 5 energy after a move
   set color scale-color green energy 150 0
+    check-death
    ifelse energy-count?
     [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
@@ -139,6 +140,7 @@ to pred-move
     fd 1
     set energy energy - 5 ;; Consume 5 energy after a move
   set color scale-color green energy 150 0
+    check-death
    ifelse energy-count?
     [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
@@ -165,9 +167,19 @@ to eat-sugar
   ]
 end
 
-;; CATCH PREY
-to catch-prey
-
+;; EAT PREY
+to eat-prey
+ let prey-target one-of preys in-cone vision 50 ;; Find a prey within the vision cone
+  if prey-target != nobody [
+      ifelse distance prey-target < 10 [ ;; If prey is less than 5 away, catch and eat prey
+        set energy (energy + [energy] of prey-target) ;; Gain energy from prey
+        ask prey-target [ die ]
+      ] [
+        ;; Move towards the prey if it's not too close
+        face prey-target
+        fd 1
+      ]
+    ]
 end
 
 ;; REPRODUCE
@@ -417,7 +429,7 @@ initial-predator-number
 initial-predator-number
 0
 100
-3.0
+85.0
 1
 1
 NIL
