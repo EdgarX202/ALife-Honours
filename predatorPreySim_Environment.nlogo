@@ -1,10 +1,7 @@
-;; 51x51 Grid with 5 pixel patches and 60fps - Predator/Prey
-;; Carrying capacity 500
-;; Sugar level reach for reproduction 89
-;; Re-grow patches if less than 10 sugar
-;; Cone vision 50 degrees
-;; 50% chance to move left or right
-;; Agent move cost 5 sugar
+;; 51x51 Grid with 5 pixel patches and 60fps
+;; Environmental change scenarios
+;; 1. Fire/Heat - killing sugar slowly
+;; 2. Water/Floods - reducing land where prey can walk and sugar amount
 
 ;; Global variables
 globals [
@@ -22,7 +19,10 @@ patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
   grow-back ;; Re-grow sugar patches if its less than 10
   last-consumed ;; Variable for delaying sugar regrowth
-  burned
+
+  ;; Environmental changes
+  heat-effect
+  flood-effect
 ]
 
 turtles-own [
@@ -30,36 +30,58 @@ turtles-own [
   prey-sugar ;; The amount of sugar that prey has
 ]
 
-;; Setup
-to setup
+;; Setup HEAT
+to setup-heat
   clear-all ;; Reset the simulation environment
-  setup-patches ;; Define characteristics of the patches
+  ;;setup-heat-patches ;; Define characteristics of the heat patches
 
   ;; Prey setup
   set-default-shape preys "circle" ;; Setting the shape of preys
   create-preys initial-prey-number [ ;; Create preys, set initial number using the slider
     set color blue ;; Colour of the prey
-    set size 1 ;; Slightly larger so it was easier to see
+    set size 1
     set vision 50 ;; Set turtle vision for finding sugar
     set prey-sugar random 20 + 1 ;; Starting amount of sugar between 1-20
     setxy random-xcor random-ycor ;; Spawn at random locations
   ]
 
-  ;; Predator setup
-
-
-  reset-ticks ;; Reset the tick count
-end
-
-;; Patches
-to setup-patches
+  ;; Patches setup
   ask patches [
     set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
     set grow-back random 50 + 1 ;; Sugar grow-back 1-50
     set last-consumed 0
     set pcolor yellow
-    set burned false
+    set heat-effect false
   ]
+
+  reset-ticks ;; Reset tick count
+end
+
+;; Setup FLOOD
+to setup-flood
+  clear-all ;; Reset the simulation environment
+  ;;setup-flood-patches ;; Define characteristics of the flood patches
+
+  ;; Prey setup
+  set-default-shape preys "circle" ;; Setting the shape of preys
+  create-preys initial-prey-number [ ;; Create preys, set initial number using the slider
+    set color blue ;; Colour of the prey
+    set size 1
+    set vision 50 ;; Set turtle vision for finding sugar
+    set prey-sugar random 20 + 1 ;; Starting amount of sugar between 1-20
+    setxy random-xcor random-ycor ;; Spawn at random locations
+  ]
+
+  ;; Patches setup
+  ask patches [
+    set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
+    set grow-back random 50 + 1 ;; Sugar grow-back 1-50
+    set last-consumed 0
+    set pcolor yellow
+    set flood-effect false
+  ]
+
+  reset-ticks ;; Reset tick count
 end
 
 to update-patches
@@ -67,17 +89,27 @@ to update-patches
 end
 
 to update-patch
-  if not burned and sugar > 0 [  ; Only affect patches with sugar and not yet burned
-if random 100 < 5 [  ; 5% chance of fire starting on any patch with sugar each tick
-set burned true
-set pcolor red
-]
-]
 
-  ;if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
-   ; set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
-   ; set pcolor yellow;
-  ;]
+  if not heat-effect and sugar > 0 [  ; Only affect patches with sugar and not yet burned
+    ask patch 40 -40 [
+    set pcolor red
+  ]
+  ]
+
+
+
+
+;if ticks mod 5 = 0 and random 100 < 5 [  ; 5% chance of fire starting on any patch with sugar every 5 ticks
+;set heat-effect true
+;set pcolor red
+;]
+
+
+
+  if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
+    set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
+    set pcolor yellow;
+  ]
 end
 
 ;; Start the simulation button
@@ -189,10 +221,10 @@ ticks
 60.0
 
 BUTTON
-144
-32
-212
-66
+37
+191
+105
+225
 NIL
 go
 T
@@ -206,10 +238,10 @@ NIL
 0
 
 BUTTON
-225
-32
-300
-68
+34
+234
+109
+270
 go-once
 go
 NIL
@@ -223,10 +255,10 @@ NIL
 0
 
 SLIDER
-0
-170
-132
-203
+156
+63
+288
+96
 initial-prey-number
 initial-prey-number
 0
@@ -238,10 +270,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-0
-368
-119
-401
+161
+108
+280
+141
 sugar-count?
 sugar-count?
 1
@@ -281,12 +313,12 @@ count preys
 11
 
 BUTTON
-32
-31
-96
-65
-NIL
-setup
+14
+61
+128
+95
+Heat Simulation
+setup-heat\n
 NIL
 1
 T
@@ -307,26 +339,6 @@ count patches with [pcolor = yellow]
 17
 1
 11
-
-TEXTBOX
-36
-94
-83
-114
-PREYS
-15
-0.0
-1
-
-TEXTBOX
-208
-99
-300
-119
-PREDATORS
-15
-0.0
-1
 
 MONITOR
 1093
@@ -351,10 +363,10 @@ birth-count
 11
 
 SLIDER
-0
-458
-173
-491
+137
+197
+310
+230
 maxSugarCap
 maxSugarCap
 0
@@ -366,10 +378,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-413
-172
-446
+137
+152
+309
+185
 carrying-capacity
 carrying-capacity
 0
@@ -379,6 +391,53 @@ carrying-capacity
 1
 NIL
 HORIZONTAL
+
+BUTTON
+12
+101
+131
+134
+Flood Simulation
+setup-flood
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+31
+18
+119
+50
+Simulation Setup buttons
+13
+0.0
+1
+
+TEXTBOX
+29
+162
+130
+180
+Start Simulation
+13
+0.0
+1
+
+TEXTBOX
+199
+36
+250
+54
+Settings
+13
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
