@@ -1,9 +1,4 @@
-;; 51x51 Grid with 5 pixel patches and 60fps
-;; Environmental change scenarios
-;; 1. Fire/Heat - killing sugar slowly
-;; 2. Water/Floods - reducing land where prey can walk and sugar amount
-
-;; Global variables
+; GLOBAL VARIABLES
 globals [
   death-count
   birth-count
@@ -11,15 +6,15 @@ globals [
   sugar-regrowth-delay
 ]
 
-;; Define predator/prey agents
+; BREEDS
 breed [ predators predator ]
 breed [ preys prey ]
 
-;; Properties(associated with agents/patches). turtles-own means shared properties for all turtles.
+; SHARED PROPERTIES
 patches-own [
   sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
   grow-back ;; Re-grow sugar patches if its less than 10
-  last-consumed ;; Variable for delaying sugar regrowth
+  sugar-last-consumed ;; Variable for delaying sugar regrowth
 ]
 
 turtles-own [
@@ -27,7 +22,7 @@ turtles-own [
   prey-sugar ;; The amount of sugar that prey has
 ]
 
-;; Setup HEAT
+; Setup HEAT/FIRE
 to setup-heat
   clear-all ;; Reset the simulation environment
   ;;setup-heat-patches ;; Define characteristics of the heat patches
@@ -48,68 +43,76 @@ to setup-heat
     set pcolor yellow
     set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
     set grow-back random 50 + 1 ;; Sugar grow-back 1-50
-    set last-consumed 0
+    set sugar-last-consumed 0
     ]
     if pxcor = min-pxcor
     [ set pcolor red ] ; Make left edge red, to simulate heat/fire
+  ]
+  ask patches with [ pcolor = black ] [
+   set sugar 0
   ]
 
   reset-ticks ;; Reset tick count
 end
 
-;; Setup FLOOD
+;; Setup FLOOD/WATER
 to setup-flood
 
 end
 
-to update-patches
-  ask patches [update-patch]
-end
-
 ;; Start the simulation button
 to go
+  if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
+
   ask preys [
     move
     eat-sugar-prey
     reproduce-prey
   ]
-  update-patches
-  tick ;; Increase the tick counter by 1 each time
-end
 
-to update-patch
-  ask patches with [ pcolor = red ] [
+   ask patches with [ pcolor = red ] [
     ask neighbors4 with [ pcolor = yellow ] [ ; Ask neighbours with sugar around the red patch
       let probability spread-probability ; Fire/Heat spread probability
       let direction towards myself ; Direction from sugar towards fire/heat(myself)
 
       ; If fire is on north side, south wind delays the fire spread and reduce the probability of spread
       if direction = 0 [
-        set probability probability - south-wind-speed
+        set probability probability - 25
       ]
       ; If fire is on east side, west wind delays the fire spread and reduce the probability of spread
       if direction = 90 [
-        set probability probability - west-wind-speed
+        set probability probability - (-25)
       ]
       ; If fire is on south side, south wind aids the fire spread and increase the probability of spread
       if direction = 180 [
-        set probability probability + south-wind-speed
+        set probability probability + 25
       ]
       ; If fire is on west side, west wind aids the fire spread and increase the probability of spread
       if direction = 270 [
-        set probability probability + west-wind-speed
+        set probability probability + (-25)
       ]
       if random 100 < probability [
         set pcolor red ; Spread heat/fire
       ]
     ]
-    set pcolor red - 3.5
+    set pcolor red - 3 ; New color for patches after fire
+    set sugar sugar / 2 ; Reduce burnt sugar patch /2
   ]
 
-  ;if sugar < 10 and ticks mod 2 = 0 and ticks >= last-consumed + 40 [ ;; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
-   ; set sugar min (list 100 (sugar + grow-back)) ;; Increase sugar
-    ;set pcolor yellow;
-  ;]
+  update-patches
+  tick ;; Increase the tick counter by 1 each time
+end
+
+to update-patches
+  ask patches [ update-patch ]
+end
+
+to update-patch
+  ; Grow patch if sugar is between 1-9, every 5 ticks after 10 ticks if its not a red patch
+  if sugar < 15 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and pcolor != red - 3 [
+    set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
+    set pcolor yellow;
+  ]
 end
 
 ;; Move the turtle
@@ -148,7 +151,7 @@ to eat-sugar-prey
         let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - prey-sugar))
         set prey-sugar (prey-sugar + [sugar] of patch-here) ;; How much sugar is added to prey from eating (slider)
         ask patch-here [ set sugar sugar - sugar-consumed ;; Subtract the consumed amount of sugar from patch
-                         set last-consumed ticks ;; Update timer
+                         set sugar-last-consumed ticks ;; Update timer
         ]
     ifelse sugar-count?
     [ set label prey-sugar ] ;; The label is set to be the value of sugar
@@ -185,11 +188,11 @@ end
 GRAPHICS-WINDOW
 322
 14
-832
-525
+753
+446
 -1
 -1
-2.0
+3.0
 1
 10
 1
@@ -199,10 +202,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--125
-125
--125
-125
+-70
+70
+-70
+70
 0
 0
 1
@@ -252,7 +255,7 @@ initial-prey-number
 initial-prey-number
 0
 100
-0.0
+10.0
 1
 1
 NIL
@@ -270,10 +273,10 @@ sugar-count?
 -1000
 
 PLOT
-889
-21
-1254
-284
+763
+15
+1156
+190
 Sugar-Prey Stats
 Time
 Total
@@ -286,15 +289,14 @@ true
 "" ""
 PENS
 "Preys" 1.0 0 -14454117 true "" "plot count preys"
-"Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = yellow]"
 "Deaths" 1.0 0 -5298144 true "" "plot death-count"
 "Birth" 1.0 0 -13840069 true "" "plot birth-count"
 
 MONITOR
-889
-295
-979
-340
+763
+201
+853
+246
 Total Preys
 count preys
 17
@@ -306,7 +308,7 @@ BUTTON
 61
 128
 95
-Heat Simulation
+Heat/Fire Sim
 setup-heat\n
 NIL
 1
@@ -319,10 +321,10 @@ NIL
 1
 
 MONITOR
-990
-295
-1082
-340
+864
+201
+956
+246
 Total Sugar
 count patches with [pcolor = yellow]
 17
@@ -330,10 +332,10 @@ count patches with [pcolor = yellow]
 11
 
 MONITOR
-1093
-296
-1183
-341
+967
+202
+1057
+247
 Total Deaths
 death-count
 17
@@ -341,10 +343,10 @@ death-count
 11
 
 MONITOR
-1094
-355
-1184
-400
+1066
+202
+1156
+247
 Total Born
 birth-count
 17
@@ -353,14 +355,14 @@ birth-count
 
 SLIDER
 137
-197
+204
 310
-230
+237
 maxSugarCap
 maxSugarCap
 0
 200
-100.0
+125.0
 1
 1
 NIL
@@ -375,7 +377,7 @@ carrying-capacity
 carrying-capacity
 0
 1500
-500.0
+200.0
 1
 1
 NIL
@@ -384,9 +386,9 @@ HORIZONTAL
 BUTTON
 12
 101
-131
+129
 134
-Flood Simulation
+Flood/Water Sim
 setup-flood
 NIL
 1
@@ -437,56 +439,44 @@ sugar-density
 sugar-density
 0
 100
-76.0
+75.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-143
-417
-315
-450
+136
+413
+308
+446
 spread-probability
 spread-probability
 0
 100
-36.0
+70.0
 1
 1
 %
 HORIZONTAL
 
-SLIDER
-68
-374
-240
-407
-south-wind-speed
-south-wind-speed
--25
-25
--9.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-72
-336
-244
-369
-west-wind-speed
-west-wind-speed
--25
-25
-13.0
-1
-1
-NIL
-HORIZONTAL
+PLOT
+763
+251
+1156
+426
+Sugar Stat
+Time
+Total
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = yellow]"
 
 @#$#@#$#@
 ## WHAT IS IT?
