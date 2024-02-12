@@ -18,71 +18,71 @@ breed [ preys prey ]
 
 ; SHARED PROPERTIES
 patches-own [
-  sugar ;; Keep the track of when the agent eat enough sugar to reproduce, or die.
-  grow-back ;; Re-grow sugar patches if its less than 10
-  sugar-last-consumed ;; Variable for delaying sugar regrowth
+  sugar ; Amount of sugar patches hold
+  grow-back ; Grow sugar patches when < 10
+  sugar-last-consumed ; Holds time when the patch was last consumed and can re-grow after some time
 ]
 
 turtles-own [
-  vision ;; Variable for setting how far turtles can see
-  prey-sugar ;; The amount of sugar that prey has
+  vision ; Using in-cone vision to see ahead
+  prey-sugar ; How much sugar prey holds
 ]
 
 ; Setup HEAT/FIRE
 to setup-heat
-  clear-all ;; Reset the simulation environment
-  ;;setup-heat-patches ;; Define characteristics of the heat patches
+  clear-all ; Reset the simulation environment
 
-  ;; Prey setup
-  set-default-shape preys "circle" ;; Setting the shape of preys
-  create-preys initial-prey-number [ ;; Create preys, set initial number using the slider
-    set color blue ;; Colour of the prey
+  ; Prey setup
+  set-default-shape preys "circle" ; Shape of a prey
+  create-preys initial-prey-number [ ; Set initial number of preys
+    set color blue
     set size 1
-    set vision 50 ;; Set turtle vision for finding sugar
-    set prey-sugar random 20 + 1 ;; Starting amount of sugar between 1-20
-    setxy random-xcor random-ycor ;; Spawn at random locations
+    set vision 50
+    set prey-sugar random 20 + 1 ; Starting amount of sugar
+    setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
-  ;; Patches setup
+  ; Patches setup
   ask patches [
     if (random 100) < sugar-density [ ; Random sugar distribution
     set pcolor yellow
-    set sugar int (random 50 + 1) ;; Random distribution of sugar 1-51
-    set grow-back random 50 + 1 ;; Sugar grow-back 1-50
+    set sugar int (random 50 + 1) ; Starting amount of sugar
+    set grow-back random 50 + 1 ; Random amount of sugar for re-growth
     set sugar-last-consumed 0
     ]
     if pxcor = min-pxcor
     [ set pcolor red ] ; Make left edge red, to simulate heat/fire
   ]
   ask patches with [ pcolor = black ] [
-   set sugar 0
+   set sugar 0 ; Starting black patches have 0 sugar = unusable
   ]
 
-  reset-ticks ;; Reset tick count
+  reset-ticks
 end
 
-;; Setup FLOOD/WATER
+; Setup FLOOD/WATER
 to setup-flood
 
 end
 
-;; Start the simulation button
+; START THE SIMULATION
 to go
-  profiler:start ; Start profiler test
+  ;profiler:start ; Start profiler test - ENABLE WHEN NEEDED
 
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
   ask preys [
-    move
+    move-prey
     eat-sugar-prey
     reproduce-prey
   ]
 
    ask patches with [ pcolor = red ] [
-    ask neighbors4 with [ pcolor = yellow ] [ ; Ask neighbours with sugar around the red patch
+    ask neighbors4 with [ pcolor = yellow ] [ ; Find neighbours with sugar around the red patch
       let probability spread-probability ; Fire/Heat spread probability
       let direction towards myself ; Direction from sugar towards fire/heat(myself)
 
+      ; Create a slider if you want to adjust wind directions, fire will spread in different ways
       ; If fire is on north side, south wind delays the fire spread and reduce the probability of spread
       if direction = 0 [
         set probability probability - 25
@@ -108,91 +108,93 @@ to go
   ]
 
   update-patches
-  tick ;; Increase the tick counter by 1 each time
+  tick ; Increase the tick counter by 1 each time
 
-  profiler:stop ; End profiler test
-  print profiler:report ; Show the results
-  profiler:reset ; Reset profiler
+  ; ENABLE PROFILER WHEN NEEDED
+  ;profiler:stop ; End profiler test
+  ;print profiler:report ; Show the results
+  ;profiler:reset ; Reset profiler
 end
 
+; UPDATE PATCHES
 to update-patches
   ask patches [ update-patch ]
 end
 
 to update-patch
-  ; Grow patch if sugar is between 1-9, every 5 ticks after 10 ticks if its not a red patch
+  ; Grow patch if sugar is < 15 and > 0, every 5 ticks after 10 ticks if its not a red patch
   if sugar < 15 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and pcolor != red - 3 [
     set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
     set pcolor yellow;
   ]
 end
 
-;; Move the turtle
-to move
-  let best-patch max-one-of patches in-cone vision 50 [ sugar ] ;; Find a patch with most sugar within radius
-  if best-patch != nobody [ ;; If the patch is found
-    ifelse random 100 < 45 [  ;; Random movement chance
-      rt random 50 ;; Right turn
-      lt random 50 ;; Left turn
-      fd 1 ;; Forward
-      set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
-      set color scale-color blue prey-sugar 200 0
+; MOVE PREY
+to move-prey
+  let best-patch max-one-of patches in-cone vision 50 [ sugar ] ; Find a patch with most sugar within radius
+  if best-patch != nobody [ ; If the patch is found
+    ifelse random 100 < 45 [  ; Random movement chance
+      rt random 50 ; Right turn
+      lt random 50 ; Left turn
+      fd 1 ; Forward
+      set prey-sugar prey-sugar - 5 ; Consume 5 sugar after move
+      set color scale-color blue prey-sugar 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
       check-death
       ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
-    [set label "" ] ;; The label is set to an empty text value
+    [ set label prey-sugar ] ; The label is set to be the value of sugar
+    [set label "" ] ; The label is set to an empty text value
     ] [
-      face best-patch  ;; Face the patch with most sugar
-      fd 1 ;; Forward
-      set prey-sugar prey-sugar - 5 ;; Consume 5 sugar after move
+      face best-patch  ; Face the patch with most sugar
+      fd 1
+      set prey-sugar prey-sugar - 5
        set color scale-color blue prey-sugar 200 0
       check-death
       ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
-    [set label "" ] ;; The label is set to an empty text value
+    [ set label prey-sugar ]
+    [set label "" ]
     ]
   ]
 end
 
-;; Eating sugar
+; EAT SUGAR
 to eat-sugar-prey
   ask preys [
-    if prey-sugar < maxSugarCap [
+    if prey-sugar < maxSugarCap [ ; If prey holds less sugar than maximum allowed
     if pcolor = yellow [
       set pcolor black
         let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - prey-sugar))
-        set prey-sugar (prey-sugar + [sugar] of patch-here) ;; How much sugar is added to prey from eating (slider)
-        ask patch-here [ set sugar sugar - sugar-consumed ;; Subtract the consumed amount of sugar from patch
-                         set sugar-last-consumed ticks ;; Update timer
+        set prey-sugar (prey-sugar + [sugar] of patch-here) ; Take sugar from patch and add it to prey
+        ask patch-here [ set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
+                         set sugar-last-consumed ticks ; Update timer
         ]
     ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
-    [set label "" ] ;; The label is set to an empty text value
+    [ set label prey-sugar ]
+    [set label "" ]
       ]
     ]
   ]
 end
 
-;; Reproduce preys
+; PREY REPRODUCTION
 to reproduce-prey
   ask preys [
-  if prey-sugar > 89 and count preys < carrying-capacity [  ;; If collected sugar is above 89 and carrying capacity is not max
-    set prey-sugar int (prey-sugar / 2) ;; Divide the energy between parent and offspring
-    set birth-count (birth-count + 1) ;; Count how many are born
-    hatch int (1) [ rt random-float 360 fd 1 ]   ;; Hatch an offspring and move it forward 1 step
+  if prey-sugar > 89 and count preys < carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
+    set prey-sugar int (prey-sugar / 2) ; Divide the energy between parent and offspring
+    set birth-count (birth-count + 1) ; Count how many are born
+    hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
       ifelse sugar-count?
-    [ set label prey-sugar ] ;; The label is set to be the value of sugar
-    [set label "" ] ;; The label is set to an empty text value
+    [ set label prey-sugar ]
+    [set label "" ]
   ]
   ]
 end
 
-;; Death
+; CHECK DEATH
 to check-death
   ask preys [
-    if prey-sugar <= 0 [
-   set death-count (death-count + 1) ;; Death count + 1 after death
-   die ;; Remove the turtle
+    if prey-sugar <= 0 [ ; If prey has no sugar left
+   set death-count (death-count + 1) ; Increase death count
+   die ; Remove the turtle
     ]
   ]
 end
