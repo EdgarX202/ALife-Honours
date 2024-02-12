@@ -6,8 +6,10 @@ extensions [profiler]
 
 ; GLOBAL VARIABLES
 globals [
-  death-count
-  birth-count
+  prey-death-count
+  prey-birth-count
+  predator-death-count
+  predator-birth-count
   initial-sugar ; Starting amount of sugar patches
   sugar-regrowth-delay
 ]
@@ -79,7 +81,7 @@ to go
 
    ask patches with [ pcolor = red ] [
     ask neighbors4 with [ pcolor = yellow ] [ ; Find neighbours with sugar around the red patch
-      let probability spread-probability ; Fire/Heat spread probability
+      let probability fire-spread-probability ; Fire/Heat spread probability
       let direction towards myself ; Direction from sugar towards fire/heat(myself)
 
       ; Create a slider if you want to adjust wind directions, fire will spread in different ways
@@ -134,15 +136,7 @@ to move-prey
   let best-patch max-one-of patches in-cone vision 50 [ sugar ] ; Find a patch with most sugar within radius
   if best-patch != nobody [ ; If the patch is found
     ifelse random 100 < 45 [  ; Random movement chance
-      rt random 50 ; Right turn
-      lt random 50 ; Left turn
-      fd 1 ; Forward
-      set prey-sugar prey-sugar - 5 ; Consume 5 sugar after move
-      set color scale-color blue prey-sugar 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
-      check-death
-      ifelse sugar-count?
-    [ set label prey-sugar ] ; The label is set to be the value of sugar
-    [set label "" ] ; The label is set to an empty text value
+      random-movement
     ] [
       face best-patch  ; Face the patch with most sugar
       fd 1
@@ -154,6 +148,19 @@ to move-prey
     [set label "" ]
     ]
   ]
+end
+
+; RANDOM MOVEMENT
+to random-movement
+  rt random 50 ; Right turn
+      lt random 50 ; Left turn
+      fd 1 ; Forward
+      set prey-sugar prey-sugar - 5 ; Consume 5 sugar after move
+      set color scale-color blue prey-sugar 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
+      check-death
+      ifelse sugar-count?
+    [ set label prey-sugar ] ; The label is set to be the value of sugar
+    [set label "" ] ; The label is set to an empty text value
 end
 
 ; EAT SUGAR
@@ -178,9 +185,9 @@ end
 ; PREY REPRODUCTION
 to reproduce-prey
   ask preys [
-  if prey-sugar > 89 and count preys < carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
+  if prey-sugar > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
     set prey-sugar int (prey-sugar / 2) ; Divide the energy between parent and offspring
-    set birth-count (birth-count + 1) ; Count how many are born
+    set prey-birth-count (prey-birth-count + 1) ; Count how many are born
     hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
       ifelse sugar-count?
     [ set label prey-sugar ]
@@ -193,7 +200,7 @@ end
 to check-death
   ask preys [
     if prey-sugar <= 0 [ ; If prey has no sugar left
-   set death-count (death-count + 1) ; Increase death count
+   set prey-death-count (prey-death-count + 1) ; Increase death count
    die ; Remove the turtle
     ]
   ]
@@ -227,10 +234,10 @@ ticks
 30.0
 
 BUTTON
-37
-191
-105
-225
+36
+189
+104
+223
 NIL
 go
 T
@@ -244,10 +251,10 @@ NIL
 0
 
 BUTTON
-34
-234
-109
-270
+33
+232
+108
+268
 go-once
 go
 NIL
@@ -276,10 +283,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-164
-289
-283
-322
+162
+340
+281
+373
 sugar-count?
 sugar-count?
 1
@@ -291,8 +298,8 @@ PLOT
 15
 1156
 190
-Sugar-Prey Stats
-Time
+Prey-Predator Stats
+Ticks
 Total
 0.0
 10.0
@@ -303,8 +310,11 @@ true
 "" ""
 PENS
 "Preys" 1.0 0 -14454117 true "" "plot count preys"
-"Deaths" 1.0 0 -5298144 true "" "plot death-count"
-"Birth" 1.0 0 -13840069 true "" "plot birth-count"
+"Predators" 1.0 0 -15040220 true "" "plot count predators"
+"Prey Birth" 1.0 0 -8275240 true "" "plot prey-birth-count"
+"Predator Birth" 1.0 0 -8330359 true "" "plot predator-birth-count"
+"Prey Death" 1.0 0 -5298144 true "" "plot prey-death-count"
+"Predator Death" 1.0 0 -3844592 true "" "plot predator-death-count"
 
 MONITOR
 763
@@ -335,10 +345,10 @@ NIL
 1
 
 MONITOR
-864
-201
-956
-246
+1066
+226
+1158
+271
 Total Sugar
 count patches with [pcolor = yellow]
 17
@@ -346,32 +356,32 @@ count patches with [pcolor = yellow]
 11
 
 MONITOR
-967
+864
 202
-1057
+957
 247
-Total Deaths
-death-count
+Prey Deaths
+prey-death-count
 17
 1
 11
 
 MONITOR
-1066
+967
 202
-1156
+1054
 247
-Total Born
-birth-count
+Preys Born
+prey-birth-count
 17
 1
 11
 
 SLIDER
-137
-204
-310
-237
+134
+257
+307
+290
 maxSugarCap
 maxSugarCap
 0
@@ -383,14 +393,14 @@ NIL
 HORIZONTAL
 
 SLIDER
-140
-100
-312
-133
-carrying-capacity
-carrying-capacity
+136
+145
+308
+178
+prey-carrying-capacity
+prey-carrying-capacity
 0
-1500
+1000
 200.0
 1
 1
@@ -415,40 +425,40 @@ NIL
 1
 
 TEXTBOX
-31
-18
-119
-50
-Simulation Setup buttons
+24
+33
+127
+51
+Simulation Setup
 13
 0.0
 1
 
 TEXTBOX
-29
-162
-130
-180
+25
+157
+126
+175
 Start Simulation
 13
 0.0
 1
 
 TEXTBOX
-199
-36
-250
-54
+200
+35
+251
+53
 Settings
 13
 0.0
 1
 
 SLIDER
-137
-243
-309
-276
+134
+296
+306
+329
 sugar-density
 sugar-density
 0
@@ -461,11 +471,11 @@ HORIZONTAL
 
 SLIDER
 136
-413
-308
-446
-spread-probability
-spread-probability
+412
+307
+445
+fire-spread-probability
+fire-spread-probability
 0
 100
 70.0
@@ -476,9 +486,9 @@ HORIZONTAL
 
 PLOT
 763
-251
+310
 1156
-426
+446
 Sugar Stat
 Time
 Total
@@ -491,6 +501,69 @@ true
 "" ""
 PENS
 "Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = yellow]"
+
+SLIDER
+155
+102
+289
+135
+initial-predator-number
+initial-predator-number
+0
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+136
+182
+309
+215
+predator-carrying-capacity
+predator-carrying-capacity
+0
+1000
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+763
+252
+854
+297
+Total Predators
+count predators
+17
+1
+11
+
+MONITOR
+864
+253
+957
+298
+Predator Deaths
+predator-death-count
+17
+1
+11
+
+MONITOR
+968
+253
+1054
+298
+Predators Born
+predator-birth-count
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
