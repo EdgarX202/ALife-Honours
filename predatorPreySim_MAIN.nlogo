@@ -1,3 +1,9 @@
+; EXTENSIONS
+extensions [profiler]
+; PROFILER - Exclusive time - is the time from when the procedure was entered, until it finished, but does not
+; include any time spent in other user-defined procedures which it calls.
+; PROFILER - Inclusive time - is the time from wheb the procedure was entered, until it finishes.
+
 ; GLOBAL VARIABLES
 globals [
   death-count
@@ -62,6 +68,8 @@ end
 
 ;; Start the simulation button
 to go
+  profiler:start ; Start profiler test
+
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
   ask preys [
@@ -101,6 +109,10 @@ to go
 
   update-patches
   tick ;; Increase the tick counter by 1 each time
+
+  profiler:stop ; End profiler test
+  print profiler:report ; Show the results
+  profiler:reset ; Reset profiler
 end
 
 to update-patches
