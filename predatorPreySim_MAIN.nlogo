@@ -121,19 +121,19 @@ to go
       ; Create a slider if you want to adjust wind directions, fire will spread in different ways
       ; If fire is on north side, south wind delays the fire spread and reduce the probability of spread
       if direction = 0 [
-        set probability probability - 25
+        set probability probability - south-wind
       ]
       ; If fire is on east side, west wind delays the fire spread and reduce the probability of spread
       if direction = 90 [
-        set probability probability - (-25)
+        set probability probability - west-wind
       ]
       ; If fire is on south side, south wind aids the fire spread and increase the probability of spread
       if direction = 180 [
-        set probability probability + 25
+        set probability probability + south-wind
       ]
       ; If fire is on west side, west wind aids the fire spread and increase the probability of spread
       if direction = 270 [
-        set probability probability + (-25)
+        set probability probability + west-wind
       ]
       if random 100 < probability [
         set pcolor red ; Spread heat/fire
@@ -259,9 +259,9 @@ to check-death
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-322
+451
 14
-753
+882
 446
 -1
 -1
@@ -286,10 +286,10 @@ ticks
 30.0
 
 BUTTON
-36
-198
-104
-232
+41
+169
+109
+203
 NIL
 go
 T
@@ -303,10 +303,10 @@ NIL
 0
 
 BUTTON
-33
-241
-108
-277
+38
+212
+113
+248
 go-once
 go
 NIL
@@ -320,10 +320,10 @@ NIL
 0
 
 SLIDER
-156
-63
-288
-96
+160
+38
+292
+71
 initial-prey-number
 initial-prey-number
 0
@@ -335,10 +335,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-162
-320
-281
-353
+303
+413
+422
+446
 sugar-count?
 sugar-count?
 1
@@ -346,9 +346,9 @@ sugar-count?
 -1000
 
 PLOT
-763
+892
 15
-1156
+1285
 190
 Prey-Predator Stats
 Ticks
@@ -369,9 +369,9 @@ PENS
 "Predator Death" 1.0 0 -3844592 true "" "plot predator-death-count"
 
 MONITOR
-763
+892
 201
-853
+982
 246
 Total Preys
 count preys
@@ -380,10 +380,10 @@ count preys
 11
 
 BUTTON
-16
-118
-130
-152
+19
+93
+133
+127
 Setup Sim
 setup\n
 NIL
@@ -397,9 +397,9 @@ NIL
 1
 
 MONITOR
-1066
+1195
 226
-1158
+1287
 271
 Total Sugar
 count patches with [pcolor = yellow]
@@ -408,9 +408,9 @@ count patches with [pcolor = yellow]
 11
 
 MONITOR
-864
+993
 202
-957
+1086
 247
 Prey Deaths
 prey-death-count
@@ -419,9 +419,9 @@ prey-death-count
 11
 
 MONITOR
-967
+1096
 202
-1054
+1183
 247
 Preys Born
 prey-birth-count
@@ -430,10 +430,10 @@ prey-birth-count
 11
 
 SLIDER
-134
-237
-307
-270
+275
+330
+448
+363
 maxSugarCap
 maxSugarCap
 0
@@ -445,10 +445,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-136
-145
-308
-178
+299
+39
+447
+72
 prey-carrying-capacity
 prey-carrying-capacity
 0
@@ -460,40 +460,40 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-24
-33
-127
-51
+27
+10
+130
+28
 Simulation Setup
 13
 0.0
 1
 
 TEXTBOX
-25
-166
-126
-184
+32
+140
+133
+158
 Start Simulation
 13
 0.0
 1
 
 TEXTBOX
-200
-35
-251
-53
+275
+10
+326
+28
 Settings
 13
 0.0
 1
 
 SLIDER
-134
-276
-306
-309
+275
+369
+447
+402
 sugar-density
 sugar-density
 0
@@ -505,10 +505,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-136
-412
-307
-445
+0
+341
+172
+374
 fire-spread-probability
 fire-spread-probability
 0
@@ -520,9 +520,9 @@ fire-spread-probability
 HORIZONTAL
 
 PLOT
-763
+892
 310
-1156
+1285
 446
 Sugar/Fire/Flood Stats
 Ticks
@@ -540,10 +540,10 @@ PENS
 "Fire/Heat" 1.0 0 -5298144 true "" "plot count patches with [pcolor = red - 3]"
 
 SLIDER
-155
-101
-289
-134
+159
+76
+293
+109
 initial-predator-number
 initial-predator-number
 0
@@ -555,10 +555,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-136
-182
-309
-215
+299
+76
+448
+109
 predator-carrying-capacity
 predator-carrying-capacity
 0
@@ -570,9 +570,9 @@ NIL
 HORIZONTAL
 
 MONITOR
-763
+892
 252
-854
+983
 297
 Total Predators
 count predators
@@ -581,9 +581,9 @@ count predators
 11
 
 MONITOR
-864
+993
 253
-957
+1086
 298
 Predator Deaths
 predator-death-count
@@ -592,9 +592,9 @@ predator-death-count
 11
 
 MONITOR
-968
+1097
 253
-1054
+1183
 298
 Predators Born
 predator-birth-count
@@ -603,49 +603,79 @@ predator-birth-count
 11
 
 CHOOSER
-6
-63
-144
-108
+9
+38
+147
+83
 selected-simulation
 selected-simulation
 "Fire/Heat" "Flood/Water"
-1
+0
 
 SLIDER
-135
-374
-307
-407
+0
+286
+172
+319
 flooding-probability
 flooding-probability
 0
 100
-79.0
+74.0
 1
 1
 %
 HORIZONTAL
 
 TEXTBOX
-42
-387
-126
-405
-For Flood Sim ->
+351
+308
+379
+326
+Sugar
 10
 0.0
 1
 
 TEXTBOX
-50
-422
-128
-440
-For Fire Sim ->
+15
+266
+171
+284
+Environmental Change settings
 10
 0.0
 1
+
+SLIDER
+25
+414
+141
+447
+south-wind
+south-wind
+-25
+25
+-9.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+25
+378
+141
+411
+west-wind
+west-wind
+-25
+25
+10.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
