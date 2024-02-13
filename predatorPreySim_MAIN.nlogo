@@ -140,21 +140,17 @@ to go
       ]
     ]
     set pcolor red - 3 ; New color for patches after fire
-    set sugar sugar / 2 ; Reduce burnt sugar patch /2
+    set sugar 0 ; Sugar patch burnt
     ]
   ]
 
   ; If flood/water simulation selected
   if selected-simulation = "Flood/Water"[
-
     calculate-water-pressure
-
-
    ask patches with [ pcolor = blue ] [
     ask neighbors4 with [ pcolor = 47 ] [ ; Find neighbours with sugar around the blue patch
       let probability flooding-probability * water-pressure; Flood/Water spread probability
       let direction towards myself ; Direction from sugar towards flood/water(myself)
-
 
       if random 100 < probability [
         set pcolor blue ; Spread flood/water
@@ -180,8 +176,8 @@ to update-patches
 end
 
 to update-patch
-  ; Grow patch if sugar is < 15 and > 0, every 5 ticks after 10 ticks if its not a red patch
-  if sugar < 15 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and pcolor != red - 3 [
+  ; Grow patch if sugar is < 15 and > 0, every 5 ticks after 10 ticks if its not a red or blue patch
+  if sugar < 15 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and (pcolor != red - 3 or pcolor != blue - 1.5) [
     set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
     set pcolor 47;
   ]
@@ -528,9 +524,9 @@ PLOT
 310
 1156
 446
-Sugar Stat
-Time
-Total
+Sugar/Fire/Flood Stats
+Ticks
+Total Patches
 0.0
 10.0
 0.0
@@ -539,7 +535,9 @@ true
 true
 "" ""
 PENS
-"Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = yellow]"
+"Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = 47]"
+"Flood/Water" 1.0 0 -13345367 true "" "plot count patches with [pcolor = blue - 1.5]"
+"Fire/Heat" 1.0 0 -5298144 true "" "plot count patches with [pcolor = red - 3]"
 
 SLIDER
 155
