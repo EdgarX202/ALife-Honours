@@ -1,10 +1,22 @@
+; EXTENSIONS
+extensions [profiler]
+; PROFILER - Exclusive time - is the time from when the procedure was entered, until it finished, but does not
+; include any time spent in other user-defined procedures which it calls.
+; PROFILER - Inclusive time - is the time from wheb the procedure was entered, until it finishes.
+
 ; GLOBAL VARIABLES
 globals [
+  ; Birth
   prey-death-count
   prey-birth-count
-  predator-birth-count
+  ; Death
   predator-death-count
+  predator-birth-count
+  ; Sugar
+  initial-sugar ; Starting amount of sugar patches
   sugar-regrowth-delay
+  ; Water
+  water-pressure
 ]
 
 ; BREEDS
@@ -13,40 +25,69 @@ breed [ preys prey ]
 
 ; SHARED PROPERTIES
 patches-own [
-  sugar ; Amount of sugar a patch has
-  sugar-grow-back ; Re-grow sugar patches if its less than 10
-  sugar-last-consumed ; Delay re-growth
+  sugar ; Amount of sugar patches hold
+  grow-back ; Grow sugar patches when < 10
+  sugar-last-consumed ; Holds time when the patch was last consumed and can re-grow after some time
 ]
+
 turtles-own [
-  vision ; Predator/Prey vision
-  energy ; Amount of energy turtles have
+  vision ; Using in-cone vision to see ahead
+  energy ; How much sugar prey holds
 ]
+
+; SETUP SUGAR
+to setup-sugar
+  if (random 100) < sugar-density [ ; Random sugar distribution
+    set pcolor 47
+    set sugar int (random 50 + 1) ; Starting amount of sugar
+    set grow-back random 50 + 1 ; Random amount of sugar for re-growth
+    set sugar-last-consumed 0
+    ]
+end
 
 ; SETUP BUTTON
 to setup
-  clear-all ; Reset the simulation environment
+  clear-all
 
-  ; Setup patches
+  ; Fire/Heat patches setup
+  if selected-simulation = "Fire/Heat" [
   ask patches [
-    set sugar int (random 50 + 1) ; Random distribution of sugar
-    set sugar-grow-back random 50 + 1 ; Amount of sugar to grow back
-    set sugar-last-consumed 0
-    set pcolor yellow
+    setup-sugar
+    if pxcor = min-pxcor
+    [ set pcolor red ] ; Make left edge red, to simulate heat/fire
   ]
-  ; Setup preys
-  set-default-shape preys "circle" ; The shape of preys
-  create-preys initial-prey-number [ ; Create preys, set initial number using a slider
-    set color blue
+  ask patches with [ pcolor = black ] [
+   set sugar 0 ; Starting black patches have 0 sugar = unusable
+    ]
+  ]
+
+  ; Water/Flood patches setup
+  if selected-simulation = "Flood/Water"[
+    ask patches [
+    setup-sugar
+    if pxcor = min-pxcor
+    [ set pcolor blue ] ; Make left edge blue, to simulate flood starting point
+  ]
+  ask patches with [ pcolor = black ] [
+   set sugar 0 ; Starting black patches have 0 sugar = unusable
+    ]
+  ]
+
+  ; Prey setup
+  set-default-shape preys "circle" ; Shape of a prey
+  create-preys initial-prey-number [ ; Set initial number of preys
+    set color orange
     set size 1
     set vision 50
-    set energy random 30 + 10 ; Starting amount of energy
+    set energy random 20 + 1 ; Starting amount of sugar
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
-  ; Setup predators
+
+  ; Predator setup
   set-default-shape predators "square" ; The shape of predators
   create-predators initial-predator-number [ ; Create predators, set initial number using a slider
     set color green
-    set size 1
+    set size 1.5
     set vision 50
     set energy random 45 + 40 ; Starting amount of energy
     setxy random-xcor random-ycor ; Spawn at random locations
@@ -55,55 +96,152 @@ to setup
   reset-ticks
 end
 
-; GO BUTTON
-to go
-  if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
-
-  ask preys [
-    move
-    eat-sugar
-    prey-reproduction
-  ]
-  ask predators [
-    pred-move
-    eat-prey
-    pred-reproduction
-  ]
-
-  ask patches [update-patch]
-  tick ; Increase the tick counter by 1 each time
-end
-
-; PREY MOVEMENT
-to move
-  let best-patch max-one-of patches in-cone vision 50 [ sugar ] ; Find a patch with most sugar within vision
-  if best-patch != nobody [ ; If the patch is found
-    ifelse random 100 < 50 [  ; Random movement chance
-      rt random-float 50 ; Right turn
-      lt random-float 50 ; Left turn
-      fd 1 ; Forward
-
-      set energy energy - 5 ; Consume 5 energy after a move
-      set color scale-color blue energy 200 0 ; Brighter colour=less sugar, darker=more
-      check-death
-      ifelse energy-count?
-    [ set label energy ] ; Label=value of sugar
-    [set label "" ] ; Label=empty text value
-    ] [
-      face best-patch  ; Face the patch with most sugar
-      fd 1
-      set energy energy - 5
-       set color scale-color blue energy 200 0
-      check-death
-      ifelse energy-count?
-    [ set label energy ]
-    [set label "" ]
+; WATER PRESSURE
+to calculate-water-pressure
+  ask patches [
+    set water-pressure 1 ; Initialize pressure
+    ask neighbors4 [
+      if pcolor = blue [
+        ; Add pressure from neighboring flooded patches
+        set water-pressure water-pressure
+      ]
     ]
   ]
 end
 
-;; MOVE PREDATOR
-to pred-move
+; START THE SIMULATION
+to go
+  ;profiler:start ; Start profiler test - ENABLE WHEN NEEDED
+
+  if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
+
+  ask preys [
+    move-prey
+    eat-sugar-prey
+    reproduce-prey
+  ]
+  ask predators [
+    move-pred
+    kill-prey
+    reproduce-pred
+  ]
+
+  ; If fire/heat simulation selected
+  if selected-simulation = "Fire/Heat"[
+   ask patches with [ pcolor = red ] [
+    ask neighbors4 with [ pcolor = 47 ] [ ; Find neighbours with sugar around the red patch
+      let probability fire-spread-probability ; Fire/Heat spread probability
+      let direction towards myself ; Direction from sugar towards fire/heat(myself)
+
+      ; Create a slider if you want to adjust wind directions, fire will spread in different ways
+      ; If fire is on north side, south wind delays the fire spread and reduce the probability of spread
+      if direction = 0 [
+        set probability probability - south-wind
+      ]
+      ; If fire is on east side, west wind delays the fire spread and reduce the probability of spread
+      if direction = 90 [
+        set probability probability - west-wind
+      ]
+      ; If fire is on south side, south wind aids the fire spread and increase the probability of spread
+      if direction = 180 [
+        set probability probability + south-wind
+      ]
+      ; If fire is on west side, west wind aids the fire spread and increase the probability of spread
+      if direction = 270 [
+        set probability probability + west-wind
+      ]
+      if random 100 < probability [
+        set pcolor red ; Spread heat/fire
+      ]
+    ]
+    set pcolor red - 3 ; New color for patches after fire
+    set sugar 0 ; Sugar patch burnt
+    ]
+  ]
+
+  ; If flood/water simulation selected
+  if selected-simulation = "Flood/Water"[
+    calculate-water-pressure
+   ask patches with [ pcolor = blue ] [
+      ask preys-here [ ; Kill preys if they appear on a blue patch
+        set energy 0
+        check-death
+         ]
+      ask predators-here [ ; Kill predators if they appear on a blue patch
+        set energy 0
+        check-death
+         ]
+    ask neighbors4 with [ pcolor = 47 ] [ ; Find neighbours with sugar around the blue patch
+      let probability flooding-probability * water-pressure; Flood/Water spread probability
+      let direction towards myself ; Direction from sugar towards flood/water(myself)
+
+      if random 100 < probability [
+        set pcolor blue ; Spread flood/water
+      ]
+    ]
+    set pcolor blue - 1.5 ; New color for patches after flood
+    set sugar 0 ; Flooded patch looses all sugar
+    ]
+  ]
+
+  update-patches
+  tick ; Increase the tick counter by 1 each time
+
+  ; ENABLE PROFILER WHEN NEEDED
+  ;profiler:stop ; End profiler test
+  ;print profiler:report ; Show the results
+  ;profiler:reset ; Reset profiler
+end
+
+; UPDATE PATCHES
+to update-patches
+  ask patches [ update-patch ]
+end
+
+to update-patch
+  if selected-simulation = "Fire/Heat"[
+  ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a red patch
+  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and (pcolor != red - 3) [
+    set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
+    set pcolor 47;
+    ]
+  ]
+
+  if selected-simulation = "Flood/Water"[
+    ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a blue patch
+  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and (pcolor != blue - 1.5) [
+    set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
+    set pcolor 47;
+    ]
+  ]
+end
+
+; MOVE PREY
+to move-prey
+  let best-patch max-one-of patches in-cone vision 50 [ sugar ]; Find a patch with most sugar within radius
+  if best-patch != nobody and pcolor != blue - 1.5 [ ; If the patch is found
+    ifelse random 100 < 45 [  ; Random movement chance
+      random-movement
+    ] [
+      face best-patch  ; Face the patch with most sugar
+      fd 1
+
+      if pcolor = blue - 1.5 or pcolor = blue [ ; If it goes into water, dies
+        set energy 0
+        check-death
+      ]
+
+      set energy energy - 5
+       set color scale-color orange energy 200 0
+      check-death
+      ifelse sugar-count?
+    [ set label energy ]
+    [set label "" ]
+      ]
+    ]
+end
+; MOVE PREDATOR
+to move-pred
   let prey-target one-of preys in-cone vision 50 ;; Find a prey within the vision cone
   ifelse prey-target != nobody [
     face prey-target
@@ -111,7 +249,7 @@ to pred-move
     set energy energy - 5 ;; Consume 5 energy after a move
   set color scale-color green energy 150 0
     check-death
-   ifelse energy-count?
+   ifelse sugar-count?
     [ set label energy ] ;; The label is set to be the value of sugar
     [set label "" ] ;; The label is set to an empty text value
   ] [
@@ -120,18 +258,40 @@ to pred-move
   ]
 end
 
-; EAT SUGAR
-to eat-sugar
+; RANDOM MOVEMENT
+to random-movement
+  rt random 50 ; Right turn
+      lt random 50 ; Left turn
+      fd 1 ; Forward
+  if pcolor = blue - 1.5 [
+        set energy 0
+        check-death
+      ]
+      set energy energy - 5 ; Consume 5 sugar after move
   ask preys [
-    if energy < maxSugarCap [ ; If current energy is < max sugar allowed
-    if pcolor = yellow [ ; If patch colour is yellow
-      set pcolor black ; Turn it black
+      set color scale-color orange energy 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
+  ]
+  ask predators [
+    set color scale-color green energy 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
+  ]
+      check-death
+      ifelse sugar-count?
+    [ set label energy ]
+    [set label "" ]
+end
+
+; EAT SUGAR
+to eat-sugar-prey
+  ask preys [
+    if energy < maxSugarCap [ ; If prey holds less sugar than maximum allowed
+    if pcolor = 47 [
+      set pcolor black
         let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - energy))
-        set energy (energy + [sugar] of patch-here) ; Convert sugar to preys energy
+        set energy (energy + [sugar] of patch-here) ; Take sugar from patch and add it to prey
         ask patch-here [ set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
                          set sugar-last-consumed ticks ; Update timer
         ]
-    ifelse energy-count?
+    ifelse sugar-count?
     [ set label energy ]
     [set label "" ]
       ]
@@ -139,8 +299,8 @@ to eat-sugar
   ]
 end
 
-;; EAT PREY
-to eat-prey
+; EAT PREY
+to kill-prey
   let prey-target one-of preys in-cone vision 50  ; Find any prey within vision
   if prey-target != nobody and distance prey-target < 5 [  ; If prey is found and within reach
    if energy < maxSugarCap [  ;; Ensure predator has enough energy to hunt
@@ -152,13 +312,13 @@ to eat-prey
 end
 
 ; PREY REPRODUCTION
-to prey-reproduction
+to reproduce-prey
   ask preys [
-  if energy > 89 and count preys < prey-carrying-capacity [  ; If collected energy is above 89 and carrying capacity is < max
-    set energy int (energy / 2) ; Divide the energy
-    set prey-birth-count (prey-birth-count + 1) ; Add to birth count
-    hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward
-      ifelse energy-count?
+  if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
+    set energy int (energy / 2) ; Divide the energy between parent and offspring
+    set prey-birth-count (prey-birth-count + 1) ; Count how many are born
+    hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
+      ifelse sugar-count?
     [ set label energy ]
     [set label "" ]
   ]
@@ -166,8 +326,8 @@ to prey-reproduction
 end
 
 ; PREDATOR REPRODUCTION
-to pred-reproduction
-  ask predators [
+to reproduce-pred
+   ask predators [
     if energy > 89 and count predators < predator-carrying-capacity [ ; If collected energy is above 89 and carrying capacity is < max
       set energy int (energy / 2) ; Divide the energy
     set predator-birth-count (predator-birth-count + 1) ; Add to birth count
@@ -179,40 +339,32 @@ to pred-reproduction
   ]
 end
 
-; DEATH
+; CHECK DEATH
 to check-death
   ask preys [
-    if energy <= 0 [
-   set prey-death-count (prey-death-count + 1) ; Death count + 1
-   die
+    if energy <= 0 [ ; If prey has no sugar left
+   set prey-death-count (prey-death-count + 1) ; Increase death count
+   die ; Remove the turtle
     ]
   ]
   ask predators [
     if energy <= 0 [
-   set predator-death-count (predator-death-count + 1) ; Death count + 1
-   die
+      set predator-death-count (predator-death-count + 1)
+      die
     ]
-  ]
-end
-
-; UPDATE PATCHES
-to update-patch
-   if sugar < 10 and ticks mod 10 = 0 and ticks >= sugar-last-consumed + 2 [ ; If a patch has < 10 sugar and its over 40 ticks, and its every second tick
-    set sugar min (list 100 (sugar + sugar-grow-back)) ; Re-grow sugar patch
-    set pcolor yellow;
   ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
+451
 14
-10
-527
-524
+882
+446
 -1
 -1
-5.0
+3.0
 1
-15
+10
 1
 1
 1
@@ -220,10 +372,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--50
-50
--50
-50
+-70
+70
+-70
+70
 0
 0
 1
@@ -231,10 +383,10 @@ ticks
 30.0
 
 BUTTON
-1001
-10
-1069
-44
+41
+161
+109
+195
 NIL
 go
 T
@@ -248,10 +400,10 @@ NIL
 0
 
 BUTTON
-1077
-10
-1148
-44
+38
+198
+113
+234
 go-once
 go
 NIL
@@ -265,38 +417,38 @@ NIL
 0
 
 SLIDER
-1002
-73
-1134
-106
+160
+38
+292
+71
 initial-prey-number
 initial-prey-number
 0
 100
-5.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
 SWITCH
-1112
-250
-1240
-283
-energy-count?
-energy-count?
+303
+413
+422
+446
+sugar-count?
+sugar-count?
 1
 1
 -1000
 
 PLOT
-541
-10
-989
-177
-Sugar Monitor
-Time
+892
+15
+1285
+190
+Prey-Predator Stats
+Ticks
 Total
 0.0
 10.0
@@ -306,15 +458,18 @@ true
 true
 "" ""
 PENS
-"Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = yellow]"
-"Predators" 1.0 0 -10402772 true "" "plot count predators"
-"Preys" 1.0 0 -14730904 true "" "plot count preys"
+"Preys" 1.0 0 -14454117 true "" "plot count preys"
+"Predators" 1.0 0 -15040220 true "" "plot count predators"
+"Prey Birth" 1.0 0 -8275240 true "" "plot prey-birth-count"
+"Predator Birth" 1.0 0 -8330359 true "" "plot predator-birth-count"
+"Prey Death" 1.0 0 -5298144 true "" "plot prey-death-count"
+"Predator Death" 1.0 0 -3844592 true "" "plot predator-death-count"
 
 MONITOR
-542
-193
-632
-238
+892
+201
+982
+246
 Total Preys
 count preys
 17
@@ -322,12 +477,12 @@ count preys
 11
 
 BUTTON
-1185
-10
-1249
-44
-NIL
-setup
+19
+93
+133
+127
+Setup Sim
+setup\n
 NIL
 1
 T
@@ -339,21 +494,21 @@ NIL
 1
 
 MONITOR
-858
-214
-955
-259
-Sugar Available
-count patches with [pcolor = yellow]
+1195
+226
+1287
+271
+Total Sugar
+count patches with [pcolor = 47]
 17
 1
 11
 
 MONITOR
-732
-192
-824
-237
+993
+202
+1086
+247
 Prey Deaths
 prey-death-count
 17
@@ -361,117 +516,114 @@ prey-death-count
 11
 
 MONITOR
-638
-192
-726
-237
-Prey Birth
+1096
+202
+1183
+247
+Preys Born
 prey-birth-count
 17
 1
 11
 
 SLIDER
-1002
-250
-1108
-283
+275
+330
+448
+363
 maxSugarCap
 maxSugarCap
 0
 200
-100.0
+125.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1001
-162
-1167
-195
+299
+39
+447
+72
 prey-carrying-capacity
 prey-carrying-capacity
 0
-1500
-268.0
+1000
+200.0
 1
 1
 NIL
 HORIZONTAL
 
+TEXTBOX
+27
+10
+130
+28
+Simulation Setup
+13
+0.0
+1
+
+TEXTBOX
+32
+140
+133
+158
+Start Simulation
+13
+0.0
+1
+
+TEXTBOX
+275
+10
+326
+28
+Settings
+13
+0.0
+1
+
 SLIDER
-1002
-112
-1136
-145
-initial-predator-number
-initial-predator-number
+275
+369
+447
+402
+sugar-density
+sugar-density
 0
 100
-100.0
+75.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1001
-200
-1168
-233
-predator-carrying-capacity
-predator-carrying-capacity
 0
-1500
-286.0
+341
+172
+374
+fire-spread-probability
+fire-spread-probability
+0
+100
+70.0
 1
 1
-NIL
+%
 HORIZONTAL
 
-MONITOR
-638
-241
-726
-286
-Predators Born
-predator-birth-count
-17
-1
-11
-
-MONITOR
-732
-241
-824
-286
-Predators Death
-predator-death-count
-17
-1
-11
-
-MONITOR
-543
-241
-632
-286
-Total Predators
-count predators
-17
-1
-11
-
 PLOT
-542
-302
-999
-534
-Predator-Prey Monitor
-Time
-Count
+892
+310
+1285
+446
+Sugar/Fire/Flood Stats
+Ticks
+Total Patches
 0.0
 10.0
 0.0
@@ -480,10 +632,147 @@ true
 true
 "" ""
 PENS
-"Prey Birth" 1.0 0 -5516827 true "" "plot prey-birth-count"
-"Predator Birth" 1.0 0 -2570826 true "" "plot predator-birth-count"
-"Prey Death" 1.0 0 -14730904 true "" "plot prey-death-count"
-"Predator Death" 1.0 0 -14477296 true "" "plot predator-death-count "
+"Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = 47]"
+"Flood/Water" 1.0 0 -13345367 true "" "plot count patches with [pcolor = blue - 1.5]"
+"Fire/Heat" 1.0 0 -5298144 true "" "plot count patches with [pcolor = red - 3]"
+
+SLIDER
+159
+76
+293
+109
+initial-predator-number
+initial-predator-number
+0
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+299
+76
+448
+109
+predator-carrying-capacity
+predator-carrying-capacity
+0
+1000
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+892
+252
+983
+297
+Total Predators
+count predators
+17
+1
+11
+
+MONITOR
+993
+253
+1086
+298
+Predator Deaths
+predator-death-count
+17
+1
+11
+
+MONITOR
+1097
+253
+1183
+298
+Predators Born
+predator-birth-count
+17
+1
+11
+
+CHOOSER
+9
+38
+147
+83
+selected-simulation
+selected-simulation
+"Fire/Heat" "Flood/Water"
+1
+
+SLIDER
+0
+286
+172
+319
+flooding-probability
+flooding-probability
+0
+100
+75.0
+1
+1
+%
+HORIZONTAL
+
+TEXTBOX
+351
+308
+379
+326
+Sugar
+10
+0.0
+1
+
+TEXTBOX
+15
+266
+171
+284
+Environmental Change settings
+10
+0.0
+1
+
+SLIDER
+25
+414
+141
+447
+south-wind
+south-wind
+-25
+25
+-9.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+25
+378
+141
+411
+west-wind
+west-wind
+-25
+25
+10.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
