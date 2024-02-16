@@ -26,7 +26,7 @@ breed [ preys prey ]
 ; SHARED PROPERTIES
 patches-own [
   sugar ; Amount of sugar patches hold
-  grow-back ; Grow sugar patches when < 10
+  grow-back ; Re-grow sugar patches
   sugar-last-consumed ; Holds time when the patch was last consumed and can re-grow after some time
 ]
 
@@ -60,7 +60,6 @@ to setup
    set sugar 0 ; Starting black patches have 0 sugar = unusable
     ]
   ]
-
   ; Water/Flood patches setup
   if selected-simulation = "Flood/Water"[
     ask patches [
@@ -79,17 +78,16 @@ to setup
     set color orange
     set size 1
     set vision 50
-    set energy random 20 + 1 ; Starting amount of sugar
+    set energy random 60 ; Starting amount of sugar
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
-
   ; Predator setup
   set-default-shape predators "square" ; The shape of predators
   create-predators initial-predator-number [ ; Create predators, set initial number using a slider
     set color green
-    set size 1.5
+    set size 2.5
     set vision 50
-    set energy random 45 + 40 ; Starting amount of energy
+    set energy random 60 ; Starting amount of energy
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
@@ -99,7 +97,7 @@ end
 ; WATER PRESSURE
 to calculate-water-pressure
   ask patches [
-    set water-pressure 1 ; Initialize pressure
+    set water-pressure 1.2 ; Initialize pressure
     ask neighbors4 [
       if pcolor = blue [
         ; Add pressure from neighboring flooded patches
@@ -111,7 +109,7 @@ end
 
 ; START THE SIMULATION
 to go
-  ;profiler:start ; Start profiler test - ENABLE WHEN NEEDED
+  profiler:start ; Start profiler test - ENABLE/DISABLE WHEN NEEDED
 
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
@@ -187,10 +185,10 @@ to go
   update-patches
   tick ; Increase the tick counter by 1 each time
 
-  ; ENABLE PROFILER WHEN NEEDED
-  ;profiler:stop ; End profiler test
-  ;print profiler:report ; Show the results
-  ;profiler:reset ; Reset profiler
+  ; ENABLE/DISABLE PROFILER WHEN NEEDED
+  profiler:stop ; End profiler test
+  print profiler:report ; Show the results
+  profiler:reset ; Reset profiler
 end
 
 ; UPDATE PATCHES
@@ -224,15 +222,15 @@ to move-prey
       random-movement
     ] [
       face best-patch  ; Face the patch with most sugar
-      fd 1
+      fd 1 ; Move forward
 
       if pcolor = blue - 1.5 or pcolor = blue [ ; If it goes into water, dies
         set energy 0
         check-death
       ]
-
-      set energy energy - 5
-       set color scale-color orange energy 200 0
+      set energy energy - 4
+      ; Uncomment line below if you want color to scale depending on how much energy left
+       ;set color scale-color orange energy 200 0
       check-death
       ifelse sugar-count?
     [ set label energy ]
@@ -240,77 +238,26 @@ to move-prey
       ]
     ]
 end
-; MOVE PREDATOR
-to move-pred
-  let prey-target one-of preys in-cone vision 50 ;; Find a prey within the vision cone
-  ifelse prey-target != nobody [
-    face prey-target
-    fd 1
-    set energy energy - 5 ;; Consume 5 energy after a move
-  set color scale-color green energy 150 0
-    check-death
-   ifelse sugar-count?
-    [ set label energy ] ;; The label is set to be the value of sugar
-    [set label "" ] ;; The label is set to an empty text value
-  ] [
-    rt random-float 50
-    lt random-float 50
-  ]
-end
-
-; RANDOM MOVEMENT
-to random-movement
-  rt random 50 ; Right turn
-      lt random 50 ; Left turn
-      fd 1 ; Forward
-  if pcolor = blue - 1.5 [
-        set energy 0
-        check-death
-      ]
-      set energy energy - 5 ; Consume 5 sugar after move
-  ask preys [
-      set color scale-color orange energy 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
-  ]
-  ask predators [
-    set color scale-color green energy 200 0 ; Set colour depending amount of sugar a prey holds (brighter to darker)
-  ]
-      check-death
-      ifelse sugar-count?
-    [ set label energy ]
-    [set label "" ]
-end
-
-; EAT SUGAR
+; PREY EAT SUGAR
 to eat-sugar-prey
   ask preys [
-    if energy < maxSugarCap [ ; If prey holds less sugar than maximum allowed
+    if energy < maxEnergy [ ; If prey holds less sugar than maximum allowed
     if pcolor = 47 [
       set pcolor black
-        let sugar-consumed min (list [sugar] of patch-here (maxSugarCap - energy))
+        let sugar-consumed min (list [sugar] of patch-here (maxEnergy - energy)) ; Calculate how much sugar was consumed
         set energy (energy + [sugar] of patch-here) ; Take sugar from patch and add it to prey
-        ask patch-here [ set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
-                         set sugar-last-consumed ticks ; Update timer
+        ask patch-here [
+          set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
+          set sugar-last-consumed ticks ; Update timer
         ]
     ifelse sugar-count?
     [ set label energy ]
-    [set label "" ]
+    [ set label "" ]
       ]
     ]
+    if energy > maxEnergy [ set energy maxEnergy ] ; If the energy goes above maxEnergy, set it to maxEnergy
   ]
 end
-
-; EAT PREY
-to kill-prey
-  let prey-target one-of preys in-cone vision 50  ; Find any prey within vision
-  if prey-target != nobody and distance prey-target < 5 [  ; If prey is found and within reach
-   if energy < maxSugarCap [  ;; Ensure predator has enough energy to hunt
-      set energy (energy + [energy] of prey-target)  ; Consume preys energy
-      ask prey-target [ die ]  ; Kill the prey
-      set prey-death-count prey-death-count + 1 ; Update prey death count
-]
-]
-end
-
 ; PREY REPRODUCTION
 to reproduce-prey
   ask preys [
@@ -321,22 +268,78 @@ to reproduce-prey
       ifelse sugar-count?
     [ set label energy ]
     [set label "" ]
-  ]
+    ]
   ]
 end
 
-; PREDATOR REPRODUCTION
-to reproduce-pred
-   ask predators [
-    if energy > 89 and count predators < predator-carrying-capacity [ ; If collected energy is above 89 and carrying capacity is < max
-      set energy int (energy / 2) ; Divide the energy
-    set predator-birth-count (predator-birth-count + 1) ; Add to birth count
-    hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward
-      ifelse sugar-count?
-    [ set label energy ]
-    [set label "" ]
+; MOVE PREDATOR
+to move-pred
+      let prey-target one-of preys in-cone vision 50
+  if prey-target != nobody [ ; If a prey is found within the vision cone
+  ifelse random 100 < 45 [
+    random-movement
+    ] [
+      fd 1 ; Move forward
+
+      if pcolor = blue - 1.5 or pcolor = blue [ ; If it goes into water, dies
+        set energy 0
+        check-death
+      ]
+      set energy energy - 2
+      check-death
     ]
   ]
+end
+; KILL PREY
+to kill-prey
+    ask predators [
+    let prey-target one-of preys-here
+    if prey-target != nobody [
+      let prey-energy [energy] of prey-target ; Get the energy of the prey
+      ask prey-target [ die ] ; Kill the prey
+      if energy < maxEnergy [
+        set energy energy + prey-energy ; Collect energy from prey
+      ]
+    ]
+    if energy > maxEnergy [ set energy maxEnergy ]
+  ]
+end
+; PREDATOR REPRODUCTION
+to reproduce-pred
+  if energy > 89 and count predators < predator-carrying-capacity [
+ set energy int (energy / 2) ; Take half of the predators energy
+ set predator-birth-count (predator-birth-count + 1)
+ hatch int (1) [ ; Hatch an offspring and move it
+   rt random-float 360
+   fd 1
+    ]
+  ]
+end
+
+; RANDOM MOVEMENT
+to random-movement
+  rt random 50 ; Right turn
+  lt random 50 ; Left turn
+  fd 1 ; Forward
+  if pcolor = blue - 1.5 [
+        set energy 0
+        check-death
+      ]
+  set energy energy - 2 ; Consume 2 sugar after move
+
+  ; Uncomment line below if you want color to scale depending on how much energy left
+  ;ask preys [
+      ;set color scale-color orange energy 200 0 ; Set colour depending amount of energy a prey holds (brighter to darker)
+  ;]
+  ; Uncomment line below if you want color to scale depending on how much energy left
+  ;ask predators [
+    ;set color scale-color green energy 200 0
+  ;]
+
+      check-death
+      ifelse sugar-count?
+    [ set label energy ]
+    [ set label "" ]
 end
 
 ; CHECK DEATH
@@ -425,17 +428,17 @@ initial-prey-number
 initial-prey-number
 0
 100
-10.0
+49.0
 1
 1
 NIL
 HORIZONTAL
 
 SWITCH
-303
-413
-422
-446
+301
+332
+420
+365
 sugar-count?
 sugar-count?
 1
@@ -527,15 +530,15 @@ prey-birth-count
 11
 
 SLIDER
-275
-330
-448
-363
-maxSugarCap
-maxSugarCap
+244
+115
+352
+148
+maxEnergy
+maxEnergy
 0
-200
-125.0
+150
+100.0
 1
 1
 NIL
@@ -587,10 +590,10 @@ Settings
 1
 
 SLIDER
-275
-369
-447
-402
+273
+288
+445
+321
 sugar-density
 sugar-density
 0
@@ -645,7 +648,7 @@ initial-predator-number
 initial-predator-number
 0
 100
-10.0
+50.0
 1
 1
 NIL
@@ -660,7 +663,7 @@ predator-carrying-capacity
 predator-carrying-capacity
 0
 1000
-100.0
+200.0
 1
 1
 NIL
@@ -725,10 +728,10 @@ flooding-probability
 HORIZONTAL
 
 TEXTBOX
-351
-308
-379
-326
+349
+268
+377
+286
 Sugar
 10
 0.0
@@ -777,7 +780,7 @@ HORIZONTAL
 @#$#@#$#@
 ## WHAT IS IT?
 
-A predator-prey model ... more info to follow
+A predator-prey simulation
 
 ## HOW IT WORKS
 
