@@ -33,6 +33,7 @@ patches-own [
 turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
+  prey-energy-gained ; Used for debugging
 ]
 
 ; SETUP SUGAR
@@ -86,7 +87,7 @@ to setup
   create-predators initial-predator-number [ ; Create predators, set initial number using a slider
     set color green
     set size 2.5
-    set vision 50
+    set vision 70
     set energy random 60 ; Starting amount of energy
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
@@ -199,7 +200,7 @@ end
 to update-patch
   if selected-simulation = "Fire/Heat"[
   ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a red patch
-  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and (pcolor != red - 3) [
+  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 8 and (pcolor != red - 3) [
     set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
     set pcolor 47;
     ]
@@ -207,7 +208,7 @@ to update-patch
 
   if selected-simulation = "Flood/Water"[
     ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a blue patch
-  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 10 and (pcolor != blue - 1.5) [
+  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 8 and (pcolor != blue - 1.5) [
     set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
     set pcolor 47;
     ]
@@ -274,7 +275,7 @@ end
 
 ; MOVE PREDATOR
 to move-pred
-      let prey-target one-of preys in-cone vision 50
+      let prey-target one-of preys in-cone vision 70
   if prey-target != nobody [ ; If a prey is found within the vision cone
   ifelse random 100 < 45 [
     random-movement
@@ -299,6 +300,7 @@ to kill-prey
       ask prey-target [ die ] ; Kill the prey
       if energy < maxEnergy [
         set energy energy + prey-energy ; Collect energy from prey
+        set prey-energy-gained prey-energy-gained + prey-energy
       ]
     ]
     if energy > maxEnergy [ set energy maxEnergy ]
@@ -314,6 +316,10 @@ to reproduce-pred
    fd 1
     ]
   ]
+end
+
+to-report total-prey-energy-gained
+  report sum [ prey-energy-gained] of predators
 end
 
 ; RANDOM MOVEMENT
@@ -721,7 +727,7 @@ flooding-probability
 flooding-probability
 0
 100
-75.0
+86.0
 1
 1
 %
@@ -776,6 +782,27 @@ west-wind
 1
 NIL
 HORIZONTAL
+
+MONITOR
+171
+392
+325
+437
+NIL
+total-prey-energy-gained
+17
+1
+11
+
+TEXTBOX
+336
+409
+397
+427
+<-DEBUG
+10
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
