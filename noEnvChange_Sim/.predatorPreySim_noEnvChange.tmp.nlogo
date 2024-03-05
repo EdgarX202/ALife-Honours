@@ -288,6 +288,17 @@ initial-prey-number
 NIL
 HORIZONTAL
 
+SWITCH
+234
+239
+353
+272
+sugar-count?
+sugar-count?
+0
+1
+-1000
+
 PLOT
 892
 15
