@@ -1,9 +1,3 @@
-; EXTENSIONS
-extensions [profiler]
-; PROFILER - Exclusive time - is the time from when the procedure was entered, until it finished, but does not
-; include any time spent in other user-defined procedures which it calls.
-; PROFILER - Inclusive time - is the time from wheb the procedure was entered, until it finishes.
-
 ; GLOBAL VARIABLES
 globals [
   ; Birth
@@ -29,6 +23,8 @@ patches-own [
 turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
+  fitness ; Average fitness of a prey
+  chromosome ; Prey chromosomes
 ]
 
 ; SETUP SUGAR
@@ -44,6 +40,7 @@ end
 ; SETUP BUTTON
 to setup
   clear-all
+  genetics-setup
 
   ; Fire/Heat patches setup
   if selected-simulation = "Fire/Heat" [
@@ -81,6 +78,88 @@ to setup
   reset-ticks
 end
 
+;; Genetics
+to genetics-setup
+  ask preys [
+    set chromosome (list 0 0 0) ; Initialise genes for each prey
+    set fitness 0 ; Initialise fitness score
+  ]
+end
+
+; Evaluate prey fitness
+to fitness-evaluation
+  ask preys [
+    let fitness-value get-fitness-value ; Get the average fitness
+    if is-number? fitness-value [
+      set fitness fitness-value ; Assign it to fitness
+    ]
+  ]
+end
+
+; Calculate fitness
+to-report get-fitness-value
+  let energy-value energy / maxEnergy ; Ratio of current energy to maximum possible
+  let distance-value 1 - (distance [self] of max-one-of patches with [pcolor = 47] [vision] / vision) ; How close prey is to sugar patch
+  let turtles-on-patch turtles-on patch-here
+  let efficiency-value count turtles-on-patch with [color = 47] / vision ; Checking how many turtles are on the same patch
+  let fitness-value (energy-value + distance-value + efficiency-value) / 3 ; Average fitness
+
+  report fitness-value
+end
+
+; Mutation
+to mutate
+  let random-index random 3 ; Select 1 out of 3 genes randomly
+  let new-value random 100
+
+  ask preys [
+    let current-chromosome [chromosome] of myself ; Retrieve the chromosome of the current prey
+    let mutated-chromosome replace-item random-index current-chromosome new-value ; Create a new chromosome
+
+    set chromosome mutated-chromosome ; Give the current prey a new chromosome
+  ]
+end
+
+
+; Crossover
+to crossover [parent1 parent2]
+  let crossover-point random 3 ; Select 1 random gene
+  let parent1-chromosome [chromosome] of parent1 ; Get chromosomes
+  let parent2-chromosome [chromosome] of parent2
+  ; Build new chromosomes for offsprings
+  let child1-chromosome sentence (sublist parent1-chromosome 0 crossover-point) (sublist parent2-chromosome crossover-point 3)
+  let child2-chromosome sentence (sublist parent2-chromosome 0 crossover-point) (sublist parent1-chromosome crossover-point 3)
+
+  ; Hatch function
+  hatch-offspring child1-chromosome child2-chromosome
+end
+
+
+; Reproduce
+to hatch-offspring [chromosome1 chromosome2]
+  let selected-parents n-of 2 preys with [ selection-method ] ; Select 2 parents
+  ; Retrieve chromosomes
+  let parentX-chromosome1 [chromosome] of one-of selected-parents
+  let parentX-chromosome2 [chromosome] of one-of (other selected-parents)
+
+  hatch 1 [
+    set chromosome ifelse random-float 1 < 0.5 [ chromosome1][ chromosome2 ] ; Roll a number and pick random chromosome
+    set color orange
+    set size 1
+    set vision 50
+    set energy random 60
+    setxy random-xcor random-ycor
+
+    ; Evaluate offsprings fitness
+    fitness-evaluation myself
+  ]
+end
+
+; Select preys with highest fitness for reproduction cycle
+to-report selection-method
+  report [one-of preys with-max [fitness]]
+end
+
 ; WATER PRESSURE
 to calculate-water-pressure
   ask patches [
@@ -96,15 +175,21 @@ end
 
 ; START THE SIMULATION
 to go
-  profiler:start ; Start profiler test - ENABLE/DISABLE WHEN NEEDED
-
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
   ask preys [
     move-prey
     eat-sugar-prey
-    reproduce-prey
+    fitness-evaluation myself ; Update fitness
+    if random-float 1 < mutation-rate [ mutate myself ] ; Random chromosome changes
   ]
+
+  ; Parent selection
+  let selected-preys n-of (count preys) preys
+  let parent1 one-of selected-preys
+  let parent2 one-of (other selected-preys)
+
+  if random-float 1 < crossover-rate [ crossover parent1 parent2 ]
 
   ; If fire/heat simulation selected
   if selected-simulation = "Fire/Heat"[
@@ -162,11 +247,6 @@ to go
 
   update-patches
   tick ; Increase the tick counter by 1 each time
-
-  ; ENABLE/DISABLE PROFILER WHEN NEEDED
-  profiler:stop ; End profiler test
-  print profiler:report ; Show the results
-  profiler:reset ; Reset profiler
 end
 
 ; UPDATE PATCHES
@@ -307,7 +387,7 @@ GRAPHICS-WINDOW
 0
 1
 ticks
-30.0
+90.0
 
 BUTTON
 41
@@ -634,6 +714,46 @@ west-wind
 1
 NIL
 HORIZONTAL
+
+SLIDER
+241
+287
+413
+320
+mutation-rate
+mutation-rate
+0
+1
+0.1
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+241
+325
+413
+358
+crossover-rate
+crossover-rate
+0
+1
+0.9
+0.01
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+278
+265
+395
+283
+Genetic Algorith settings
+10
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
