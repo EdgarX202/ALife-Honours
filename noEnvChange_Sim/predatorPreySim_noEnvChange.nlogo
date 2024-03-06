@@ -28,6 +28,7 @@ turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
   speed ; How fast turtle goes
+  current-generation
   chromosome ; A string of 0s and 1s
   fitness
 ]
@@ -61,7 +62,8 @@ to setup
     set vision 50
     set speed 1
     set energy random 50 + 20 ; Starting amount of sugar
-    set chromosome n-values 3 [one-of [0 1]] ; Create 3 bits
+    set current-generation 0
+    set chromosome n-values 4 [one-of [0 1]] ; Create 4 bits
     set fitness energy ; Starting fitness = starting energy level
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
@@ -100,7 +102,8 @@ to go
   update-patches
 
   ; 20 ticks = 1 generation
-  if ticks mod 20 = 0 [
+  ;
+  if ticks mod 20 = 0 and generation < max-generations [
    evolve-genes
    calculate-fitness
    set generation generation + 1
@@ -185,7 +188,7 @@ to reproduce-prey
     if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
       set energy int (energy / 2) ; Divide the energy between parent and offspring
       set prey-birth-count (prey-birth-count + 1) ; Count how many are born
-      hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
+      hatch int (1) [ rt random-float 360 fd 1 set current-generation generation] ; Hatch an offspring and move it forward by 1 step
     ]
   ]
 end
@@ -239,7 +242,7 @@ to calculate-fitness
     ; Check if the sum is not 0
     let total-chromosomes sum chromosome
     let efficiency ifelse-value total-chromosomes != 0 [energy / sum chromosome] [0]
-    ; Minimum distance to any predator
+    ; Minimum distance to any predator, 0 if no predators alive
     let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0]
 
     ; Calculate fitness
