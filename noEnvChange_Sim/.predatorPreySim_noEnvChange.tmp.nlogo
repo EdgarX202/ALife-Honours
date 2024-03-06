@@ -9,6 +9,9 @@ globals [
   ; Sugar
   initial-sugar ; Starting amount of sugar patches
   sugar-regrowth-delay
+  ; GA
+  generation
+  best-fit ; Turtles with best fitness
 ]
 
 ; BREEDS
@@ -21,10 +24,12 @@ patches-own [
   grow-back ; Re-grow sugar patches
   sugar-last-consumed ; Holds time when the patch was last consumed and can re-grow after some time
 ]
-
 turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
+  speed ; How fast turtle goes
+  chromosome ; A string of 0s and 1s
+  fitness
 ]
 
 ; SETUP SUGAR
@@ -54,20 +59,25 @@ to setup
     set color orange
     set size 1
     set vision 50
+    set speed 1
     set energy random 50 + 20 ; Starting amount of sugar
+    set chromosome n-values 3 [one-of [0 1]] ; Create 3 bits
+    set fitness energy ; Starting fitness = starting energy level
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
   ; Predator setup
-  set-default-shape predators "square" ; The shape of predators
-  create-predators initial-predator-number [ ; Create predators, set initial number using a slider
+  set-default-shape predators "square" ; The shape of a predator
+  create-predators initial-predator-number [
     set color green
-    set size 2
+    set size 1.5
     set vision 50
+    set speed 1.2 ; 0.2 faster than prey
     set energy random 50 + 30 ; Starting amount of energy
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
+  set generation 0 ; Starting generation
   reset-ticks
 end
 
@@ -88,6 +98,13 @@ to go
   ]
 
   update-patches
+
+  ; 20 ticks = 1 generation
+  if ticks mod 20 = 0 [
+   evolve-genes
+   calculate-fitness
+   set generation generation + 1
+  ]
   tick ; Increase the tick counter by 1 each time
 end
 
@@ -111,13 +128,24 @@ to move-prey
       random-movement
     ] [
       face best-patch  ; Face the patch with most sugar
-      fd 1 ; Move forward
+      fd speed ; Move forward
       ]
 
       set energy energy - 4
       check-death
       ]
 end
+; MOVE PREDATOR
+to move-pred
+  let prey-target one-of preys in-cone vision 50
+  if prey-target != nobody [
+      face prey-target
+      fd 1
+    ]
+  set energy energy - 2
+  check-death
+end
+
 ; PREY EAT SUGAR
 to eat-sugar-prey
   ask preys [
@@ -135,29 +163,7 @@ to eat-sugar-prey
   if energy > maxEnergy [ set energy maxEnergy ] ; If the energy goes above maxEnergy, set it to maxEnergy
   ]
 end
-; PREY REPRODUCTION
-to reproduce-prey
-  ask preys [
-    if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
-      set energy int (energy / 2) ; Divide the energy between parent and offspring
-      set prey-birth-count (prey-birth-count + 1) ; Count how many are born
-      hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
-    ]
-  ]
-end
-
-; MOVE PREDATOR
-to move-pred
-  let prey-target one-of preys in-cone vision 50
-  if prey-target != nobody [
-      face prey-target
-      fd 1
-    ]
-  set energy energy - 2
-  check-death
-end
-
-; KILL PREY
+; PREDATOR KILL PREY
 to kill-prey
  ask predators [
     let prey-target one-of preys-here
@@ -173,6 +179,16 @@ to kill-prey
   ]
 end
 
+; PREY REPRODUCTION
+to reproduce-prey
+  ask preys [
+    if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
+      set energy int (energy / 2) ; Divide the energy between parent and offspring
+      set prey-birth-count (prey-birth-count + 1) ; Count how many are born
+      hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
+    ]
+  ]
+end
 ; PREDATOR REPRODUCTION
 to reproduce-pred
  if energy > 69 and count predators < predator-carrying-capacity [
@@ -210,6 +226,33 @@ to check-death
       die
     ]
   ]
+end
+
+; FITNESS CALCULATION
+to calculate-fitness
+  ask preys [
+    ; Weights
+    let efficiency-weight 0.6 ; Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
+    let distance-weight 0.4 ; Lower weight to indicate that prey should keep more distance from presdators
+
+    ; Calculate efficiency by dividing current energy by the sum of genes in chromosome
+    ; Check if the sum is not 0
+    let total-chromosomes sum chromosome
+    let efficiency ifelse-value total-chromosomes != 0 [energy / sum chromosome] [0]
+
+    ; Minimum distance to any predator
+    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0]
+    ; Calculate fitness
+    ; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
+    ; Add 1 to ensure expression doesnt become undefined when 0
+    let fitness-calc efficiency-weight * efficiency + distance-weight * (1 / (distance-from-predator + 1))
+    ; Set fitness
+    set fitness round fitness-calc
+  ]
+end
+; GENES EVOLUTION
+to evolve-genes
+
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -287,17 +330,6 @@ initial-prey-number
 1
 NIL
 HORIZONTAL
-
-SWITCH
-234
-239
-353
-272
-sugar-count?
-sugar-count?
-0
-1
--1000
 
 PLOT
 892
@@ -538,6 +570,72 @@ Sugar
 10
 0.0
 1
+
+SLIDER
+207
+288
+379
+321
+max-generations
+max-generations
+0
+500
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+208
+368
+380
+401
+mutation-rate
+mutation-rate
+0
+1
+0.05
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+207
+328
+379
+361
+crossover-rate
+crossover-rate
+0
+1
+0.7
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+233
+265
+362
+283
+Genetic Algortithm settings
+10
+0.0
+1
+
+MONITOR
+119
+288
+192
+333
+NIL
+generation
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
