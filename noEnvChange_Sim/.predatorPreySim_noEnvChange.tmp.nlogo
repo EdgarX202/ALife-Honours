@@ -274,9 +274,9 @@ to-report mutation [offspring-chromo]
   foreach [chromosome] of offspring-chromo [
     ifelse random-float 1.0 < mutation-rate [ ; Probability of the mutation
       let mutated-gene one-of (remove chromosome offspring-chromo)
-      set child-chromo lput mutated-gene child-chromo ; Add mutated gene to the list
+      set child-chromo lput
     ] [
-      set child-chromo lput chromosome child-chromo ; Chromosome remains the same
+      set child-chromo word child-chromo chromosome ; Chromosome remains the same
     ]
   ]
   report child-chromo
