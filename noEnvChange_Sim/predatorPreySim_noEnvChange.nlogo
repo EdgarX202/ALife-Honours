@@ -11,7 +11,6 @@ globals [
   sugar-regrowth-delay
   ; GA
   generation
-  best-fit ; Turtles with best fitness
 ]
 
 ; BREEDS
@@ -28,7 +27,7 @@ turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
   speed ; How fast turtle goes
-  current-generation
+  birth-generation
   chromosome ; A string of 0s and 1s
   fitness
 ]
@@ -62,7 +61,7 @@ to setup
     set vision 50
     set speed 1
     set energy random 50 + 20 ; Starting amount of sugar
-    set current-generation 0
+    set birth-generation 0
     set chromosome n-values 4 [one-of [0 1]] ; Create 4 bits
     set fitness energy ; Starting fitness = starting energy level
     setxy random-xcor random-ycor ; Spawn at random locations
@@ -101,10 +100,9 @@ to go
 
   update-patches
 
-  ; 20 ticks = 1 generation
-  ;
-  if ticks mod 20 = 0 and generation < max-generations [
-   evolve-genes
+  ; gen-tick(slider) ticks = 1 generation
+  if ticks mod gen-tick = 0 and generation < max-generations [
+   evolution
    calculate-fitness
    set generation generation + 1
   ]
@@ -188,7 +186,11 @@ to reproduce-prey
     if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
       set energy int (energy / 2) ; Divide the energy between parent and offspring
       set prey-birth-count (prey-birth-count + 1) ; Count how many are born
-      hatch int (1) [ rt random-float 360 fd 1 set current-generation generation] ; Hatch an offspring and move it forward by 1 step
+      ; Hatch an offspring and move it forward by 1 step, set birth generation
+      hatch int (1) [
+        rt random-float 360
+        fd 1
+        set birth-generation generation]
     ]
   ]
 end
@@ -234,10 +236,6 @@ end
 ; FITNESS CALCULATION
 to calculate-fitness
   ask preys [
-    ; Weights
-    let efficiency-weight 0.6 ; Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
-    let distance-weight 0.4 ; Lower weight to indicate that prey should keep more distance from presdators
-
     ; Calculate efficiency by dividing current energy by the sum of genes in chromosome
     ; Check if the sum is not 0
     let total-chromosomes sum chromosome
@@ -248,13 +246,51 @@ to calculate-fitness
     ; Calculate fitness
     ; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
     ; Add 1 to ensure expression doesnt become undefined when 0
+    ; "efficiency-weight": Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
+    ; "distance-weight": Lower weight to indicate that prey should keep more distance from presdators
     let fitness-calc efficiency-weight * efficiency + distance-weight * (1 / (distance-from-predator + 1))
     ; Set fitness
     set fitness round fitness-calc
   ]
 end
-; GENES EVOLUTION
-to evolve-genes
+
+; SELECTION
+to-report best-fit
+  ; Sort preys based on fitness
+  ;let selected-preys sort-on [fitness] preys
+ ; ; Select the top half based on fitness
+ ; let top-half sublist selected-preys 0 ((count preys) / 2)
+  ; Select the fittest prey
+  ;let best-prey first top-half
+
+  ;report best-prey
+end
+
+; CROSSOVER
+to-report crossover [parent1 parent2]
+  let cut-point random (length [chromosome] of parent1) ; Select a random cut point in the chromosome
+  let parent1-genes substring [chromosome] of parent1 0 cut-point ; Genes before the cut point
+  let parent2-genes substring [chromosome] of parent2 cut-point length [chromosome] of parent2 ; Genes after the cut point
+
+  let offspring-chromo word parent1-genes parent2-genes ; Combine genes from both parents to create offspring
+  report offspring-chromo
+end
+
+; EVOLUTION
+to evolution
+  ; SELECTION
+  ; Sort preys based on fitness
+  let selected-preys sort-on [fitness] preys
+  ; Select the top half based on fitness
+  let top-half sublist selected-preys 0 ((count preys) / 2)
+  ; Select parents
+  let parent1 one-of top-half
+  let parent2 one-of top-half
+
+  ; CROSSOVER
+  if parent1 != nobody and parent2 != nobody [
+
+  ]
 
 end
 @#$#@#$#@
@@ -287,9 +323,9 @@ ticks
 
 BUTTON
 42
-107
+100
 110
-141
+134
 NIL
 go
 T
@@ -304,9 +340,9 @@ NIL
 
 BUTTON
 39
-144
+137
 114
-180
+173
 go-once
 go
 NIL
@@ -320,10 +356,10 @@ NIL
 0
 
 SLIDER
-160
-38
-292
-71
+176
+31
+308
+64
 initial-prey-number
 initial-prey-number
 0
@@ -370,9 +406,9 @@ count preys
 
 BUTTON
 20
-39
+32
 134
-73
+66
 Setup
 setup\n
 NIL
@@ -419,10 +455,10 @@ prey-birth-count
 11
 
 SLIDER
-244
-115
-352
-148
+328
+106
+436
+139
 maxEnergy
 maxEnergy
 0
@@ -434,10 +470,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-299
-39
+317
+32
 447
-72
+65
 prey-carrying-capacity
 prey-carrying-capacity
 0
@@ -450,29 +486,29 @@ HORIZONTAL
 
 TEXTBOX
 33
-86
+79
 134
-104
+97
 Start Simulation
 13
 0.0
 1
 
 TEXTBOX
-275
-10
-326
-28
+290
+11
+341
+29
 Settings
 13
 0.0
 1
 
 SLIDER
-206
-195
-378
-228
+191
+106
+296
+139
 sugar-density
 sugar-density
 0
@@ -502,10 +538,10 @@ PENS
 "Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = 47]"
 
 SLIDER
-159
-76
-293
-109
+175
+69
+309
+102
 initial-predator-number
 initial-predator-number
 0
@@ -517,10 +553,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-299
-76
+317
+69
 448
-109
+102
 predator-carrying-capacity
 predator-carrying-capacity
 0
@@ -564,21 +600,11 @@ predator-birth-count
 1
 11
 
-TEXTBOX
-282
-175
-310
-193
-Sugar
-10
-0.0
-1
-
 SLIDER
-207
-288
-379
-321
+275
+224
+447
+257
 max-generations
 max-generations
 0
@@ -590,10 +616,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-208
-368
-380
-401
+276
+304
+448
+337
 mutation-rate
 mutation-rate
 0
@@ -605,10 +631,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-207
-328
-379
-361
+275
+264
+447
+297
 crossover-rate
 crossover-rate
 0
@@ -620,25 +646,110 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-233
-265
-362
-283
+301
+201
+430
+219
 Genetic Algortithm settings
 10
 0.0
 1
 
 MONITOR
-119
-288
-192
-333
+188
+223
+261
+268
 NIL
 generation
 17
 1
 11
+
+SLIDER
+150
+271
+261
+304
+gen-tick
+gen-tick
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+51
+257
+173
+283
+After how many ticks new generation starts->
+10
+0.0
+1
+
+SLIDER
+276
+371
+448
+404
+efficiency-weight
+efficiency-weight
+0
+2
+0.6
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+276
+413
+448
+446
+distance-weight
+distance-weight
+0
+2
+0.4
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+328
+354
+403
+372
+Fitness settings
+10
+0.0
+1
+
+TEXTBOX
+165
+415
+275
+441
+Distance to predator-> Penalty
+10
+0.0
+1
+
+TEXTBOX
+134
+374
+272
+400
+Sugar to energy conversion-> Reward
+10
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
