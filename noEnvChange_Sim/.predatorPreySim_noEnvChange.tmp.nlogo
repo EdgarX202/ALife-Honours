@@ -86,10 +86,17 @@ end
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
-  ask preys [
-    move-prey
-    eat-sugar-prey
-    reproduce-prey
+  ask preys[
+    if any? preys [
+      move-prey
+      eat-sugar-prey
+
+      if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
+        evolution ; Selection + Crossover + Mutation + Hatching
+        calculate-fitness
+        set generation generation + 1
+      ]
+    ]
   ]
 
   ask predators [
@@ -99,14 +106,6 @@ to go
   ]
 
   update-patches
-
-  if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
-    if any? preys [
-      evolution ; Selection + Crossover + Mutation
-      calculate-fitness
-      set generation generation + 1
-    ]
-  ]
   tick ; Increase the tick counter by 1 each time
 end
 
@@ -185,19 +184,19 @@ to kill-prey
 end
 
 ; PREY REPRODUCTION
-to reproduce-prey
-  ask preys [
-    if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
-      set energy int (energy / 2) ; Divide the energy between parent and offspring
-      set prey-birth-count (prey-birth-count + 1) ; Count how many are born
+;to reproduce-prey
+ ; ask preys [
+   ; if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
+     ; set energy int (energy / 2) ; Divide the energy between parent and offspring
+     ; set prey-birth-count (prey-birth-count + 1) ; Count how many are born
       ; Hatch an offspring and move it forward by 1 step, set birth generation
-      hatch int (1) [
-        rt random-float 360
-        fd 1
-        set birth-generation generation]
-    ]
-  ]
-end
+      ;hatch int (1) [
+        ;rt random-float 360
+        ;fd 1
+        ;set birth-generation generation]
+    ;]
+  ;]
+;end
 
 ; PREDATOR REPRODUCTION
 to reproduce-pred
@@ -259,48 +258,50 @@ to calculate-fitness
 end
 
 ; CROSSOVER
-to-report crossover [parent1 parent2]
-  let cut-point random (length [chromosome] of parent1) ; Select a random cut point in the chromosome
-  let parent1-genes sublist [chromosome] of parent1 0 cut-point ; Genes before the cut point
-  let parent2-genes sublist [chromosome] of parent2 cut-point length [chromosome] of parent2 ; Genes after the cut point
-  let offspring-chromo word parent1-genes parent2-genes ; Combine genes from both parents to create offspring
-  report offspring-chromo
+
+
+
+; MUTATION - FIX THIS, currently all bits flip
+to-report mutation [chromosome-to-mutate]
+  let mutated-chromo map [b -> ; Anonymous reporter -> , b - single element(gene 0/1)
+    ifelse-value random-float 1 < mutation-rate ; Roll a number, check if its less than mutation rate
+    [(ifelse-value b = 0 [1] [0])] ; Flip the bit, if b=0 then 1, if b=1 then 0
+    [b] ; Remain unchanged
+  ] chromosome-to-mutate
+  report mutated-chromo
 end
 
-; MUTATION
-to-report mutation [offspring-chromo]
-  let child-chromo (list) ; Empty list to store mutated chromosome
-
-  foreach [chromosome] of offspring-chromo [
-    ifelse random-float 1.0 < mutation-rate [ ; Probability of the mutation
-      let mutated-gene one-of (remove chromosome offspring-chromo)
-      set child-chromo lput
-    ] [
-      set child-chromo word child-chromo chromosome ; Chromosome remains the same
-    ]
+to hatch-offspring [mut-chromo]
+  hatch 1 [
+    set chromosome mut-chromo ; Give mutated chromosome
+    rt random-float 360
+    fd 1
+    set birth-generation generation
+    set color red
   ]
-  report child-chromo
 end
-
 
 ; EVOLUTION
 to evolution
-  ; SELECTION
   let selected-preys sort-on [fitness] preys ; Sort preys based on fitness
   let top-half sublist selected-preys 0 ((count preys) / 2) ; Select the top half based on fitness
 
+  if top-half != nobody [ ; If the list is not empty
   ; Select parents
   let parent1 one-of top-half
   let parent2 one-of top-half
 
-  if parent1 != nobody and parent2 != nobody [
-      ; Do crossover
+  if parent1 != nobody and parent2 != nobody [ ; If parent1 & parent2 is not empty
+      ; Perform crossover
       let offspring-cross-chromo crossover parent1 parent2 ; Create offspring chromosome
 
-      ; Do mutation
+      ; Perform mutation
       let mutated-chromo mutation offspring-cross-chromo ; Mutate the offsprings chromosome
-  ]
 
+      ; Perform hatching
+      hatch-offspring mutated-chromo
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -633,8 +634,8 @@ mutation-rate
 mutation-rate
 0
 1
-0.05
-0.01
+0.2
+0.1
 1
 NIL
 HORIZONTAL
