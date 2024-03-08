@@ -1,4 +1,4 @@
-; GLOBAL VARIABLES
+;-----------------------------GLOBAL VARIABLES---------------------------------
 globals [
   ; Birth
   prey-death-count
@@ -11,13 +11,23 @@ globals [
   sugar-regrowth-delay
   ; GA
   generation
+  ; NN
+  input-layer
+  hidden-layer
+  output-layer
+  learning-rate ; Not sure if this will be used?
 ]
 
-; BREEDS
+;-----------------------------BREEDS---------------------------------
 breed [ predators predator ]
 breed [ preys prey ]
+breed [ neurons neuron ]
 
-; SHARED PROPERTIES
+;-----------------------------SHARED PROPERTIES---------------------------------
+links-own [
+ weight ; Create links with weights between neurons
+]
+
 patches-own [
   sugar ; Amount of sugar patches hold
   grow-back ; Re-grow sugar patches
@@ -31,6 +41,15 @@ turtles-own [
   chromosome ; A string of 0s and 1s
   fitness ; How fit the turtle is
 ]
+
+;-----------------------------SETUP---------------------------------
+; SETUP NEURAL NETWORK
+to setup-nn [input-size hidden-size output-size rate]
+  set input-layer input-size
+  set hidden-layer hidden-size
+  set output-layer output-size
+  set learning-rate rate
+end
 
 ; SETUP SUGAR
 to setup-sugar
@@ -62,7 +81,7 @@ to setup
     set speed 1
     set energy random 50 + 20 ; Starting amount of sugar
     set birth-generation 0 ; During which generation a prey was born
-    set chromosome n-values 6 [one-of [0 1]] ; Create 6 genes
+    set chromosome n-values 6 [one-of [0 1]] ; Create 6 genes <--------------------- use this in NN weight, 1 gene 1 weight??
     set fitness energy ; Starting fitness = starting energy level
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
@@ -82,7 +101,7 @@ to setup
   reset-ticks
 end
 
-; START THE SIMULATION
+;-----------------------------SIMULATION GO---------------------------------
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
@@ -121,6 +140,7 @@ to update-patch
   ]
 end
 
+;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
   let best-patch max-one-of patches in-cone vision 50 [ sugar ] ; Find a patch with most sugar within radius
@@ -147,6 +167,17 @@ to move-pred
   check-death
 end
 
+; RANDOM MOVEMENT
+to random-movement
+  rt random 50 ; Right turn
+  lt random 50 ; Left turn
+  fd 1 ; Forward
+
+  set energy energy - 2
+  check-death
+end
+
+;-----------------------------FEED/KILL---------------------------------
 ; PREY EAT SUGAR
 to eat-sugar-prey
   ask preys [
@@ -183,6 +214,7 @@ to kill-prey
   ]
 end
 
+;-----------------------------REPRODUCTION---------------------------------
 ; PREY REPRODUCTION
 ;to reproduce-prey
  ; ask preys [
@@ -210,17 +242,7 @@ to reproduce-pred
   ]
 end
 
-; RANDOM MOVEMENT
-to random-movement
-  rt random 50 ; Right turn
-  lt random 50 ; Left turn
-  fd 1 ; Forward
-
-  set energy energy - 2
-  check-death
-end
-
-; CHECK DEATH
+;-----------------------------CHECK-DEATH---------------------------------
 to check-death
   ask preys [
     if energy <= 0 [
@@ -236,15 +258,13 @@ to check-death
   ]
 end
 
+;-----------------------------GENETIC ALGORITHM---------------------------------
 ; FITNESS CALCULATION
 to calculate-fitness
   ask preys [
-    ; Calculate efficiency by dividing current energy by the sum of genes in chromosome
-    ; Check if the sum is not 0
     let total-chromosomes sum chromosome
-    let efficiency ifelse-value total-chromosomes != 0 [energy / sum chromosome] [0]
-    ; Minimum distance to any predator, 0 if no predators alive
-    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0]
+    let efficiency ifelse-value total-chromosomes != 0 [energy / sum chromosome] [0] ; Calculate efficiency by dividing current energy by the sum of genes in chromosome
+    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0] ; Minimum distance to any predator, 0 if no predators alive
 
     ; Calculate fitness
     ; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
@@ -257,18 +277,16 @@ to calculate-fitness
   ]
 end
 
-; CROSSOVER
+; CROSSOVER - issue with parent2 cut-point?
 to-report crossover [parent1 parent2]
   let cut-point random (length [chromosome] of parent1) ; Select a random cut point in the chromosome
-  let parent1-genes sublist [chromosome] of parent1 0 cut-point ; Genes before the cut point
 
+  let parent1-genes sublist [chromosome] of parent1 0 cut-point ; Genes before the cut point
   let parent2-genes sublist [chromosome] of parent2 cut-point (length [chromosome] of parent2) ; Genes after the cut point
 
   let offspring-chromo lput parent1-genes parent2-genes ; Combine genes from both parents to create offspring
   report offspring-chromo
 end
-
-
 
 ; MUTATION - FIX THIS, currently all bits flip
 to-report mutation [chromosome-to-mutate]
@@ -283,14 +301,14 @@ end
 to hatch-offspring [mut-chromo]
   hatch 1 [
     set chromosome mut-chromo ; Give mutated chromosome
-    rt random-float 360
-    fd 1
     set birth-generation generation
     set color red
+    rt random-float 360
+    fd 1
   ]
 end
 
-; EVOLUTION
+; EVOLUTION <------------------ train this using feedforward and backpropagation NN??
 to evolution
   let selected-preys sort-on [fitness] preys ; Sort preys based on fitness
   let top-half sublist selected-preys 0 ((count preys) / 2) ; Select the top half based on fitness
@@ -312,6 +330,9 @@ to evolution
     ]
   ]
 end
+
+; Copyright 2024 Edgar Park.
+; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
 451
@@ -628,7 +649,7 @@ max-generations
 max-generations
 0
 500
-100.0
+95.0
 1
 1
 NIL
