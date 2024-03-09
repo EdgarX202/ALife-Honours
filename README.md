@@ -1,5 +1,5 @@
 # ALife-Honours
-### Edinburgh Napier University honours project for Games Development course. </br>
+### Edinburgh Napier University honours project for BSc(Hons) Games Development course. </br>
 #### Timeframe: September 2023 - April 2024
 In this project we are researching how predators/preys can adapt and survive in different environmental change scenarios where they would require to learn fast and in a realistic way IN A VIDEO GAME. </br>
 * Software used for creating simulations: NetLogo
