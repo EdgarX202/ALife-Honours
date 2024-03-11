@@ -308,7 +308,7 @@ to hatch-offspring [mut-chromo]
   ]
 end
 
-; EVOLUTION <------------------ train this using feedforward and backpropagation NN??
+; EVOLUTION <------------------ train this using feedforward NN?? backpropagation only for supervised learning
 to evolution
   let selected-preys sort-on [fitness] preys ; Sort preys based on fitness
   let top-half sublist selected-preys 0 ((count preys) / 2) ; Select the top half based on fitness
