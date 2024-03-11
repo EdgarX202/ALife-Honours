@@ -9,13 +9,25 @@ globals [
   ; Sugar
   initial-sugar ; Starting amount of sugar patches
   sugar-regrowth-delay
+  ; GA
+  generation
+  ; NN
+  input-layer
+  hidden-layer
+  output-layer
+  learning-rate ; Not sure if this will be used?
 ]
 
 ;-----------------------------BREEDS---------------------------------
 breed [ predators predator ]
 breed [ preys prey ]
+breed [ neurons neuron ]
 
 ;-----------------------------SHARED PROPERTIES---------------------------------
+links-own [
+ weight ; Create links with weights between neurons
+]
+
 patches-own [
   sugar ; Amount of sugar patches hold
   grow-back ; Re-grow sugar patches
@@ -25,9 +37,16 @@ turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
   speed ; How fast turtle goes
+  birth-generation ; During which generation a turtle was born
+  chromosome ; A string of 0s and 1s
+  fitness ; How fit the turtle is
 ]
 
 ;-----------------------------SETUP---------------------------------
+; SETUP NEURAL NETWORK
+learning-rate rate
+end
+
 ; SETUP SUGAR
 to setup-sugar
   if (random 100) < sugar-density [ ; Random sugar distribution
