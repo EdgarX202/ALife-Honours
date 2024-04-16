@@ -40,6 +40,7 @@ turtles-own [
   speed
   birth-generation
   fitness
+  personal-chromo
 ]
 
 ;-----------------------------SETUP---------------------------------
@@ -100,54 +101,33 @@ to feedforward [chromo]
     ; DEBUG END <-------
 
     ; Variables for the hidden layer
+    let access-weights [weights] of chromo ; Get the weights of a chromosome
     let bias (random-float 2 - 1) ; Random bias -1 to 1
     let current-weight-index 0 ; Tracking which weight we are calculating
     let total-hidden-neurons length hidden-layer ; Get the number of hidden neurons
     let i 0 ; Variable for counter
     let current-hidden-neuron 0 ; Store calculated neuron value
-
-    ; Variables for the output layer
-    let j 0
-    set output-values []
+    let whatever [
 
     ; Calculate HIDDEN layer
     ask neurons [
       foreach total-hidden-neurons [ ; Loop through neurons
-        ; Calculate weighted sum for a hidden neuron using weight and input value
-        let updated-neuron (item i total-inputs * weights) + bias
-        set current-hidden-neuron updated-neuron ; Storing values
-        set i i + 1 ; Increment iteration
+        let updated-neuron (item i access-weights * item i total-inputs) + bias ; Calculate weighted sum with bias
+        set whatever updated-neuron
 
-        set weights item current-weight-index chromo ; Get the weight from the chromosome
-        set current-weight-index current-weight-index + 1 ; Increment index counter
+        set current-hidden-neuron updated-neuron ; Store the calculation in a new variable
+        set i i + 1 ; Increment the counter
+        set weights item current-weight-index access-weights ; Retrieve the next weight from the list
+        set current-weight-index current-weight-index + 1 ; Increment index
 
-        ; Activation function
+        ; Apply sigmoid activation function
         set hidden-layer replace-item i hidden-layer sigmoid(current-hidden-neuron)
       ]
     ]
-
-    ; Calculate OUTPUT layer
-
-    foreach hidden-layer [ ; Loop through outputs
-      let curr-weight-out-index 0
-      ; Calculate weighted sum using weights and hidden layer values
-      let updated-neuron (item j hidden-layer * weights) + bias
-      let current-output-neuron updated-neuron ; Storing values
-      set j j + 1 ; Increment iteration
-
-      set weights item curr-weight-out-index chromo ; Get the weight from the chromosome
-      set curr-weight-out-index curr-weight-out-index + 1 ; Increment index counter
-
-      ; Activation function
-      set current-output-neuron sigmoid(current-output-neuron) ; Apply sigmoid
-
-      ; Append result to output list
-      set output-values lput current-output-neuron output-values
-    ]
-
-
+print whatever
     ; DEBUG START <-------
-      print output-values ; Should be a list of numbers between 0 and 1 ?
+    ;  print access-weights ; Checking if weights are accessible - Works
+     ;print hidden-layer ; Currently all 0s :(
     ; DEBUG END <---------
 ]
 end
@@ -194,6 +174,7 @@ to setup
     set energy random 40 + 20 ; Starting amount of sugar
     set birth-generation 1 ; During which generation a prey was born
     set fitness energy ; Starting fitness = starting energy level
+    set personal-chromo one-of chromosomes ; Assign a random chromosome from available chromosomes
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
@@ -205,6 +186,9 @@ to setup
     set vision 50
     set speed 1.2 ; 0.2 faster than prey
     set energy random 50 + 30 ; Starting amount of energy
+    set birth-generation 1 ; During which generation a prey was born
+    set fitness energy ; Starting fitness = starting energy level
+    set personal-chromo one-of chromosomes ; Assign a random chromosome from available chromosomes
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
@@ -221,8 +205,7 @@ if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) 
         set generation generation + 1
 
   ask preys[
-      let my-chromo one-of chromosomes
-      feedforward [weights] of my-chromo
+      feedforward personal-chromo ; Passing individual chromosome to neural network
 
       move-prey
       eat-sugar-prey
@@ -973,10 +956,10 @@ Neural Network settings
 1
 
 SLIDER
-20
-286
-156
-319
+11
+285
+147
+318
 num-chromosomes
 num-chromosomes
 0
