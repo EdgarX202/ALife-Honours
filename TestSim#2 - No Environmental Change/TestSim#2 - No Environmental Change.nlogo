@@ -1,4 +1,4 @@
-;-----------------------------GLOBAL VARIABLES---------------------------------
+ ;-----------------------------GLOBAL VARIABLES---------------------------------
 globals [
   ; Birth
   prey-death-count
@@ -7,7 +7,7 @@ globals [
   predator-death-count
   predator-birth-count
   ; Sugar
-  initial-sugar ; Starting amount of sugar patches
+  initial-sugar
   sugar-regrowth-delay
   ; GA
   generation
@@ -15,36 +15,149 @@ globals [
   input-layer
   hidden-layer
   output-layer
-  learning-rate ; Not sure if this will be used?
+  output-values
 ]
 
 ;-----------------------------BREEDS---------------------------------
 breed [ predators predator ]
 breed [ preys prey ]
 breed [ neurons neuron ]
+breed [ chromosomes chromosome ]
 
 ;-----------------------------SHARED PROPERTIES---------------------------------
-links-own [
- weight ; Create links with weights between neurons
+chromosomes-own [
+  weights
 ]
 
 patches-own [
-  sugar ; Amount of sugar patches hold
-  grow-back ; Re-grow sugar patches
-  sugar-last-consumed ; Holds time when the patch was last consumed and can re-grow after some time
+  sugar
+  grow-back
+  sugar-last-consumed
 ]
 turtles-own [
-  vision ; Using in-cone vision to see ahead
-  energy ; How much sugar prey holds
-  speed ; How fast turtle goes
-  birth-generation ; During which generation a turtle was born
-  chromosome ; A string of 0s and 1s
-  fitness ; How fit the turtle is
+  vision
+  energy
+  speed
+  birth-generation
+  fitness
 ]
 
 ;-----------------------------SETUP---------------------------------
 ; SETUP NEURAL NETWORK
-learning-rate rate
+to setup-nn [input-size hidden-size output-size]
+  set input-layer input-size
+ set hidden-layer []  ; Start with an empty list
+  repeat hidden-size [
+    set hidden-layer lput 0 hidden-layer  ; Add 0 as initial values
+  ]
+  set output-layer output-size
+
+  ; Initialise weights for every chromosome
+  create-chromosomes num-chromosomes [
+    set weights []
+
+    ; Weights between input and hidden layers
+    repeat (input-size * hidden-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
+    ]
+
+    ; Weights between hidden and output layers
+    repeat (hidden-size * output-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
+    ]
+  ]
+end
+
+; DISTANCE TO TARGET
+; Using NetLogo primitive "distance"
+; calculate Euclidean distance between two agents
+; distance = sqrt((x2 - x1)^2 + (y2 - y1)^2)
+to-report calculate-distance [target]
+  ifelse target != nobody [
+    report distance target
+  ] [
+    report nobody ; In case targets dont exist anymore
+  ]
+end
+
+; PREY NN FEEDFORWARD
+to feedforward [chromo]
+  ask preys [
+    ; Calculations for INPUT layer
+    ; Create new variable for storing single predator and single patch of sugar
+    let predatorX one-of predators
+    let food one-of patches with [sugar > 0]
+
+    ; Get distance to predator/sugar
+    let distance-to-predator calculate-distance predatorX
+    let distance-to-food ifelse-value (food != nobody) [calculate-distance food] [0]
+
+    ; Get the list of INPUTS
+    let total-inputs (list distance-to-predator distance-to-food energy speed)
+
+    ; DEBUG START <-----
+    ; print total-inputs
+    ; DEBUG END <-------
+
+    ; Variables for the hidden layer
+    let bias (random-float 2 - 1) ; Random bias -1 to 1
+    let current-weight-index 0 ; Tracking which weight we are calculating
+    let total-hidden-neurons length hidden-layer ; Get the number of hidden neurons
+    let i 0 ; Variable for counter
+    let current-hidden-neuron 0 ; Store calculated neuron value
+
+    ; Variables for the output layer
+    let j 0
+    set output-values []
+
+    ; Calculate HIDDEN layer
+    ask neurons [
+      foreach total-hidden-neurons [ ; Loop through neurons
+        ; Calculate weighted sum for a hidden neuron using weight and input value
+        let updated-neuron (item i total-inputs * weights) + bias
+        set current-hidden-neuron updated-neuron ; Storing values
+        set i i + 1 ; Increment iteration
+
+        set weights item current-weight-index chromo ; Get the weight from the chromosome
+        set current-weight-index current-weight-index + 1 ; Increment index counter
+
+        ; Activation function
+        set hidden-layer replace-item i hidden-layer sigmoid(current-hidden-neuron)
+      ]
+    ]
+
+    ; Calculate OUTPUT layer
+
+    foreach hidden-layer [ ; Loop through outputs
+      let curr-weight-out-index 0
+      ; Calculate weighted sum using weights and hidden layer values
+      let updated-neuron (item j hidden-layer * weights) + bias
+      let current-output-neuron updated-neuron ; Storing values
+      set j j + 1 ; Increment iteration
+
+      set weights item curr-weight-out-index chromo ; Get the weight from the chromosome
+      set curr-weight-out-index curr-weight-out-index + 1 ; Increment index counter
+
+      ; Activation function
+      set current-output-neuron sigmoid(current-output-neuron) ; Apply sigmoid
+
+      ; Append result to output list
+      set output-values lput current-output-neuron output-values
+    ]
+
+
+    ; DEBUG START <-------
+      print output-values ; Should be a list of numbers between 0 and 1 ?
+    ; DEBUG END <---------
+]
+end
+
+; SIGMOID FUNCTION
+; Takes in a real number as input, squashes it into a range between 0 and 1.
+; The output forms and S-shaped curve.
+; It introduces non-linearity that enables NN to learn complex data that a linear function cant learn.
+to-report sigmoid [x]
+  report 1 / (1 + exp (-1 * x))
 end
 
 ; SETUP SUGAR
@@ -57,9 +170,12 @@ to setup-sugar
     ]
 end
 
-; SETUP BUTTON
+; -SETUP BUTTON-
 to setup
   clear-all ; Clear the world
+
+  ; Setup neural network(4 Inputs, 4 Hidden neurons, 4 Outputs)
+    setup-nn 4 4 4
 
   ask patches [
     setup-sugar
@@ -72,10 +188,12 @@ to setup
   set-default-shape preys "circle" ; Shape of a prey
   create-preys initial-prey-number [ ; Set initial number of preys
     set color orange
-    set size 1
+    set size 1.5
     set vision 50
     set speed 1
-    set energy random 50 + 20 ; Starting amount of sugar
+    set energy random 40 + 20 ; Starting amount of sugar
+    set birth-generation 1 ; During which generation a prey was born
+    set fitness energy ; Starting fitness = starting energy level
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
@@ -90,24 +208,30 @@ to setup
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
+  set generation 0 ; Starting generation
   reset-ticks
 end
 
 ;-----------------------------SIMULATION GO---------------------------------
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
+if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
+        ;evolution ; Selection + Crossover + Mutation + Hatching
+        ;calculate-fitness
+        set generation generation + 1
 
   ask preys[
-    if any? preys [
+      let my-chromo one-of chromosomes
+      feedforward [weights] of my-chromo
+
       move-prey
       eat-sugar-prey
-    ]
+      ]
   ]
 
   ask predators [
-    move-pred
-    kill-prey
-    reproduce-pred
+      move-pred
+      kill-prey
   ]
 
   update-patches
@@ -129,17 +253,36 @@ end
 ;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
-  let best-patch max-one-of patches in-cone vision 50 [ sugar ] ; Find a patch with most sugar within radius
-  if best-patch != nobody [ ; If the patch is found
-    ifelse random 100 < 45 [  ; Random movement chance
-      random-movement
-    ] [
-      face best-patch  ; Face the patch with most sugar
-      fd speed ; Move forward
-      ]
-      set energy energy - 4
-      check-death
-      ]
+  ; MAKE SURE THAT ACTIVATION FUNCTION DOESNT ACTIVATE ALL AT ONCE...
+  ; CREATE IT SO IT CHOOSES ONE FROM LEFT/RIGHT AND ONE FROM ACCELERATE/DECELERATE
+
+  ;let outputs output-values
+  ;let turn-left item 0 outputs
+  ;let turn-right item 1 outputs
+  ;let accelerate item 2 outputs
+  ;let decelerate item 3 outputs
+
+  ; Output 0
+  ;if turn-left > turn-right [
+   ; rt (turn-left * turn-sensitivity * 180)
+   ; set energy energy - 2
+   ; check-death]
+  ; Output 1
+  ;if turn-right > turn-left [
+   ; lt (turn-right * turn-sensitivity * 180)
+   ; set energy energy - 2
+   ; check-death]
+  ; Output 2
+  ;if accelerate > decelerate [
+   ; fd (accelerate * speed-sensitivity)
+   ; set energy energy - 2
+   ; check-death]
+  ; Output 3
+  ;if decelerate > accelerate [
+   ; let reverse-speed (-1 * decelerate * speed-sensitivity) ; Negative value for reverse movement
+   ; fd reverse-speed
+   ; set energy energy - 0.5 ; Less energy cost for deceleration
+   ; check-death]
 end
 
 ; MOVE PREDATOR
@@ -200,34 +343,6 @@ to kill-prey
   ]
 end
 
-;-----------------------------REPRODUCTION---------------------------------
-; PREY REPRODUCTION
-;to reproduce-prey
- ; ask preys [
-   ; if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
-     ; set energy int (energy / 2) ; Divide the energy between parent and offspring
-     ; set prey-birth-count (prey-birth-count + 1) ; Count how many are born
-      ; Hatch an offspring and move it forward by 1 step, set birth generation
-      ;hatch int (1) [
-        ;rt random-float 360
-        ;fd 1
-        ;set birth-generation generation]
-    ;]
-  ;]
-;end
-
-; PREDATOR REPRODUCTION
-to reproduce-pred
- if energy > 69 and count predators < predator-carrying-capacity [
-    set energy int (energy / 2) ; Take half of the predators energy
-    set predator-birth-count (predator-birth-count + 1)
-    hatch int (1) [ ; Hatch an offspring and move it
-      rt random-float 360
-      fd 1
-    ]
-  ]
-end
-
 ;-----------------------------CHECK-DEATH---------------------------------
 to check-death
   ask preys [
@@ -242,6 +357,94 @@ to check-death
       die
     ]
   ]
+end
+
+;-----------------------------GENETIC ALGORITHM---------------------------------
+; FITNESS
+; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
+; Add 1 to ensure expression doesnt become undefined when 0
+; "efficiency-weight": Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
+; "distance-weight": Lower weight to indicate that prey should keep more distance from presdators
+to calculate-fitness
+  ask preys [
+    ; Get the chromosome
+    let chromo one-of chromosomes
+
+    let efficiency ifelse-value any? chromo [energy / sum chromo] [0] ; <--- CHANGE THIS TO JUST ENERGY??
+    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0] ; Minimum distance to any predator, 0 if no predators alive
+    let fitness-calc efficiency-weight * efficiency + distance-weight * (1 / (distance-from-predator + 1)) ; Calculate fitness
+
+    set fitness round fitness-calc ; Set fitness (round the number)
+  ]
+end
+
+; TOURNAMENT SELECTION
+to-report selection
+  let parents [] ; Empty list
+
+  ; Repeat a number of times (slider settings)
+  ; Select randomly 2 candidates
+  repeat parents-num [
+    let candidateA one-of preys
+    let candidateB one-of preys
+  ; If the candidates are the same prey, select a new candidateB
+    while [candidateA = candidateB] [
+      set candidateB one-of preys
+    ]
+  ; Compare fitness of both candidates and select the winner (one with higher fitness)
+    let winner ifelse-value [fitness] of candidateA > [fitness] of candidateB [candidateA] [candidateB]
+    set parents lput winner parents
+  ]
+
+  report parents
+end
+
+; CROSSOVER + MUTATION
+to-report crossover-mutate [parent1 parent2]
+  ; Get parent chromosomes
+  let parent1-chromo [chromosomes] of parent1
+  let parent2-chromo [chromosomes] of parent2
+
+  ; Perform one point crossover **
+
+end
+
+
+
+to hatch-offspring [mut-chromo]
+  hatch 1 [
+    set energy random 60 + 20 ; Give random energy 60-80
+    set weights mut-chromo ; Give mutated chromosome
+    set birth-generation generation
+    set color red
+    rt random-float 360
+    fd 1
+  ]
+end
+
+; EVOLUTION <---------
+to evolution
+  ; Create old generation, do not include new offsprings
+  let old-generation (turtle-set preys)
+
+  let selected-parents selection
+
+  ; Crossover and mutation
+  foreach selected-parents [
+
+    ; Separate both parents into parent1 and parent2
+    let parent-pair selected-parents
+    let parent1 item 0 parent-pair
+    let parent2 item 1 parent-pair
+
+    let crossed-children crossover-mutate parent1 parent2
+   ; let child1 item 0 crossed-children
+
+    ;mutate child1
+    ;hatch-offspring child1
+  ]
+
+  ask old-generation [die]
 end
 
 ; Copyright 2024 Edgar Park.
@@ -275,10 +478,10 @@ ticks
 30.0
 
 BUTTON
-41
-161
-109
-195
+42
+100
+110
+134
 NIL
 go
 T
@@ -292,10 +495,10 @@ NIL
 0
 
 BUTTON
-38
-198
-113
-234
+39
+137
+114
+173
 go-once
 go
 NIL
@@ -309,10 +512,10 @@ NIL
 0
 
 SLIDER
-160
-38
-292
-71
+176
+31
+308
+64
 initial-prey-number
 initial-prey-number
 0
@@ -322,17 +525,6 @@ initial-prey-number
 1
 NIL
 HORIZONTAL
-
-SWITCH
-301
-332
-420
-365
-sugar-count?
-sugar-count?
-1
-1
--1000
 
 PLOT
 892
@@ -350,12 +542,12 @@ true
 true
 "" ""
 PENS
-"Preys" 1.0 0 -14454117 true "" "plot count preys"
+"Preys" 1.0 0 -817084 true "" "plot count preys"
 "Predators" 1.0 0 -15040220 true "" "plot count predators"
-"Prey Birth" 1.0 0 -8275240 true "" "plot prey-birth-count"
-"Predator Birth" 1.0 0 -8330359 true "" "plot predator-birth-count"
-"Prey Death" 1.0 0 -5298144 true "" "plot prey-death-count"
-"Predator Death" 1.0 0 -3844592 true "" "plot predator-death-count"
+"Prey Birth" 1.0 0 -204336 true "" "plot prey-birth-count"
+"Predator Birth" 1.0 0 -2754856 true "" "plot predator-birth-count"
+"Prey Death" 1.0 0 -10146808 true "" "plot prey-death-count"
+"Predator Death" 1.0 0 -16110067 true "" "plot predator-death-count"
 
 MONITOR
 892
@@ -369,11 +561,11 @@ count preys
 11
 
 BUTTON
-19
-93
-133
-127
-Setup Sim
+20
+32
+134
+66
+Setup
 setup\n
 NIL
 1
@@ -419,10 +611,10 @@ prey-birth-count
 11
 
 SLIDER
-244
-115
-352
-148
+328
+106
+436
+139
 maxEnergy
 maxEnergy
 0
@@ -434,10 +626,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-299
-39
+317
+32
 447
-72
+65
 prey-carrying-capacity
 prey-carrying-capacity
 0
@@ -449,63 +641,38 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-27
-10
-130
-28
-Simulation Setup
-13
-0.0
-1
-
-TEXTBOX
-32
-140
-133
-158
+33
+79
+134
+97
 Start Simulation
 13
 0.0
 1
 
 TEXTBOX
-275
-10
-326
-28
+290
+11
+341
+29
 Settings
 13
 0.0
 1
 
 SLIDER
-273
-288
-445
-321
+191
+106
+296
+139
 sugar-density
 sugar-density
 0
 100
-75.0
+50.0
 1
 1
 NIL
-HORIZONTAL
-
-SLIDER
-0
-341
-172
-374
-fire-spread-probability
-fire-spread-probability
-0
-100
-70.0
-1
-1
-%
 HORIZONTAL
 
 PLOT
@@ -513,7 +680,7 @@ PLOT
 310
 1285
 446
-Sugar/Fire/Flood Stats
+Sugar Stats
 Ticks
 Total Patches
 0.0
@@ -525,14 +692,12 @@ true
 "" ""
 PENS
 "Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = 47]"
-"Flood/Water" 1.0 0 -13345367 true "" "plot count patches with [pcolor = blue - 1.5]"
-"Fire/Heat" 1.0 0 -5298144 true "" "plot count patches with [pcolor = red - 3]"
 
 SLIDER
-159
-76
-293
-109
+175
+69
+309
+102
 initial-predator-number
 initial-predator-number
 0
@@ -544,10 +709,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-299
-76
+317
+69
 448
-109
+102
 predator-carrying-capacity
 predator-carrying-capacity
 0
@@ -591,77 +756,248 @@ predator-birth-count
 1
 11
 
-CHOOSER
-9
-38
-147
-83
-selected-simulation
-selected-simulation
-"Fire/Heat" "Flood/Water"
-0
-
 SLIDER
+320
+181
+444
+214
+max-generations
+max-generations
 0
-286
-172
-319
-flooding-probability
-flooding-probability
-0
-100
-86.0
-1
-1
-%
-HORIZONTAL
-
-TEXTBOX
-349
-268
-377
-286
-Sugar
-10
-0.0
-1
-
-TEXTBOX
-15
-266
-171
-284
-Environmental Change settings
-10
-0.0
-1
-
-SLIDER
-25
-414
-141
-447
-south-wind
-south-wind
--25
-25
--9.0
+500
+100.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-25
-378
-141
-411
-west-wind
-west-wind
--25
-25
-10.0
+318
+261
+445
+294
+mutation-rate
+mutation-rate
+0
 1
+0.2
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+319
+221
+444
+254
+crossover-rate
+crossover-rate
+0
+1
+0.7
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+318
+161
+447
+179
+Genetic Algortithm settings
+10
+0.0
+1
+
+MONITOR
+239
+180
+312
+225
+NIL
+generation
+17
+1
+11
+
+SLIDER
+222
+230
+314
+263
+gen-tick
+gen-tick
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+96
+232
+218
+258
+After how many ticks new generation occurs->
+10
+0.0
+1
+
+SLIDER
+318
+371
+445
+404
+efficiency-weight
+efficiency-weight
+0
+1
+0.4
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+318
+407
+446
+440
+distance-weight
+distance-weight
+0
+1
+0.4
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+351
+356
+426
+374
+Fitness settings
+10
+0.0
+1
+
+TEXTBOX
+209
+414
+319
+440
+Distance to predator-> Penalty
+10
+0.0
+1
+
+TEXTBOX
+215
+377
+321
+403
+Sugar to energy conversion-> Reward
+10
+0.0
+1
+
+SLIDER
+321
+472
+448
+505
+parents-num
+parents-num
+0
+100
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+364
+452
+411
+470
+Selection
+10
+0.0
+1
+
+SLIDER
+23
+311
+139
+344
+turn-sensitivity
+turn-sensitivity
+0
+1
+0.2
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+23
+353
+140
+386
+speed-sensitivity
+speed-sensitivity
+0
+1
+0.5
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+28
+289
+143
+307
+Neural Network settings
+10
+0.0
+1
+
+SLIDER
+73
+478
+206
+511
+num-chromosomes
+num-chromosomes
+0
+500
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+317
+300
+445
+333
+mutation-magnitude
+mutation-magnitude
+0
+1
+0.2
+0.1
 1
 NIL
 HORIZONTAL
@@ -669,27 +1005,64 @@ HORIZONTAL
 @#$#@#$#@
 ## WHAT IS IT?
 
-A predator-prey simulation
+An environmental change simulator with predator-prey agents acting as organisms that try to survive extreme conditions. This project was created as part of Edinburgh Napier University honours project for BSc Games Development course.
+
+The purpose of this simulation is to research predator-prey behaviour and improve its behaviour with the use of neural networks and genetic algorithm. The ultimate goal is to create agents that can learn fast to changing environments and become smarter with each generation while trying to survive extreme environmental conditions.
+
+There are two environmental change scenarios implemented:
+
+1. Wildfire, where sugar(food) patches get burnt and become inedible. The agents can still walk on these patches; however, they will not any food, and therefore die from starvation.
+
+2. Flood/Tsunami event. In this simulation, sugar patches become soaked and inedible. Furthermore, assuming that its deep water, agents cannot walk on it and so they instantly die(drown in water).
+
+Finally, the research conducted in the honours project was about evolutionary algorithms and NEAT, rtNEAT; therefore, an attempt was made to create a simulation in NetLogo that would have a similar behaviour to rtNEAT.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+Patches: There are few types of patches - water/fire/sugar/inedible.
+
+1. Water - spreads on sugar patches, making them inedible. Flood pressure is added from neighbouring already flooded patches. Any agent in its path will die.
+
+2. Fire - similar behaviour. No pressure, but wind is added that pushes fire to spread across other sugar patches. Wind direction depends on user input.
+
+3. Sugar - this patch only holds random amount of sugar.
+
+4. Inedible - this patch is either damaged by fire/water or it was initialised at the start like this. It holds 0 sugar.
+
+Prey agents: It uses neural network to learn its environment and genetic algorithm to evolve and reproduce. Prey organisms main objective is to gather sugar while evading predators and using energy efficiently. Furthermore, prey should learn the changing environment in a fast manner and with each new generation, adapt new behaviour that would contribute towards a better fitness score.
+
+Predator agents: It works in a similar way and uses a neural network and genetic algorithm hybrid. The only difference is that predator agents don't eat sugar, instead they hunt prey and are more aggressive by nature.
+
+Both predator-prey should avoid water and adapt to changing environment.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+Right hand side: use monitors and plots to observe predator-prey level change (birth, death, total) and follow sugar levels.
+
+Left hand side: 
+
+1. Settings - adjust sliders to create the environment with more/less predator/preys, adjust their carrying capacity. In addition, use maxEnergy to make sure that agents dont have too much energy (otherwise they would probably start reproduce infinitely). Lastly, sugar-density slider adjusts the distribution of sugar in the simulation.
+
+2. GA settings - adjust maxGeneration for the maximum number of generations that will occur in the simulation. The number of current generation can be seen in the monitor. Also, gen-tick specifies after how many "ticks" a new generation will occur.
+
+Next, crossover-rate is the probability that two selected parent chromosomes will exchange parts of their genetic material to create new offsprings. Mutation-rate is the probability that a single gene within a chromosome will randomly change its value. By adjusting these sliders, we can increase the variation of chromosomes that new offsprings will have.
+
+3. Fitness settings - efficiency-weight, adjust this slider to increase the "reward" for an agent. Better efficiency weight indicates that the agent is efficiently using its sugar/energy. Positive impact.
+Distance-weight on the other hand is a negative impact and the lower slider value indicates that an agent is close to a hazard/enemy, and it should learn to keep more distance.
+
+4. Selection settings - adjust the slider to increase/decrease the amount of parents should be selected in "selection" phase. (Tournament selection)
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+The behaviour of both prey and predator agents.....MORE TO FOLLOW
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+Feel free to experiment with the simulation by adjusting various sliders.
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+This simulation could be further extended by improving current neural network and genetic algorithm hybrid behaviour. It should eventually replicate NEAT/rtNEAT, also possibly creating a bridge and connecting NetLogo with a 3rd party machine learning framework (using JAVA) that could majorly improve the simulation.
 
 ## NETLOGO FEATURES
 
@@ -700,8 +1073,6 @@ A predator-prey simulation
 (models in the NetLogo Models Library and elsewhere which are of related interest)
 
 ## CREDITS AND REFERENCES
-
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
 default
 true

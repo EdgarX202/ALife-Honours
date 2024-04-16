@@ -1,46 +1,112 @@
-; GLOBAL VARIABLES
+;-----------------------------GLOBAL VARIABLES---------------------------------
 globals [
-  ; Birth
+  ; Birth/Death
   prey-death-count
   prey-birth-count
   ; Sugar
   initial-sugar ; Starting amount of sugar patches
   sugar-regrowth-delay
-  ; Water
-  water-pressure
+  ; GA
+  generation
+  ; NN
+  input-layer
+  hidden-layer
+  output-layer
+  learning-rate ; Not sure if this will be used?
 ]
 
-; BREEDS
+;-----------------------------BREEDS---------------------------------
 breed [ preys prey ]
+breed [ neurons neuron ]
 
-; SHARED PROPERTIES
+;-----------------------------SHARED PROPERTIES---------------------------------
 patches-own [
   sugar ; Amount of sugar patches hold
   grow-back ; Re-grow sugar patches
   sugar-last-consumed ; Holds time when the patch was last consumed and can re-grow after some time
+  water-pressure
 ]
 
 turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
-  fitness ; Average fitness of a prey
-  chromosome ; Prey chromosomes
+  speed ; How fast turtle goes
+  movement
+  birth-generation ; During which generation a turtle was born
+  chromosome ; A string of 0s and 1s
+  fitness ; How fit the turtle is
 ]
+
+links-own [
+ weight ; Create links with weights between neurons
+]
+
+;-----------------------------SETUP---------------------------------
+; SETUP NEURAL NETWORK
+to setup-nn [input-size hidden-size output-size rate]
+  set input-layer input-size
+  set hidden-layer hidden-size
+  set output-layer output-size
+  set learning-rate rate
+
+  ; Initialise weights between input and hidden layers
+  ask preys [
+    ask neurons [
+      create-link-with myself
+        [
+          set weight random-float 1
+      ]
+    ]
+  ]
+  ; Initialise weights between hidden and output layers
+  ask neurons [
+    ask preys [
+      create-link-with myself
+        [
+          set weight random-float 1
+      ]
+    ]
+  ]
+end
+
+; SETUP FOR PREY NN
+to setup-prey-nn
+  ; (4 Inputs, 10 Hidden neurons, 3 Outputs, 0.1 Learning rate)
+  setup-nn 4 10 3 0.1
+end
+
+; DISTANCE TO PREDATOR AND SUGAR
+to-report calculate-distance [target]
+  ; Calculate distance between prey and target (sugar/predator)
+  ; Using Pythagorean theorem. Straight line
+  let dex [xcor] of target - [xcor] of myself
+  let dey [ycor] of target - [ycor] of myself
+  report sqrt (dx * dx + dy * dy)
+end
+
+; PREY NN FEEDFORWARD
+to feedforward
+
+end
+
+; Sigmoid function
+to-report sigmoid [x]
+  report 1 / (1 + exp (-x))
+end
 
 ; SETUP SUGAR
 to setup-sugar
   if (random 100) < sugar-density [ ; Random sugar distribution
-    set pcolor 47
-    set sugar int (random 50 + 1) ; Starting amount of sugar
-    set grow-back random 50 + 1 ; Random amount of sugar for re-growth
-    set sugar-last-consumed 0
+    set pcolor 47 ; Color of a patch (yellow-ish)
+    set sugar int (random 50) ; Starting amount of sugar
+    set grow-back random 50 ; Random amount of sugar for re-growth
+    set sugar-last-consumed 0 ; Default time when sugar was last consumed
     ]
 end
 
-; SETUP BUTTON
+;-----------------------------SETUP BUTTON---------------------------------
 to setup
   clear-all
-  genetics-setup
 
   ; Fire/Heat patches setup
   if selected-simulation = "Fire/Heat" [
@@ -71,96 +137,19 @@ to setup
     set color orange
     set size 1
     set vision 50
-    set energy random 60 ; Starting amount of sugar
+    set speed 1
+    set energy random 50 + 20 ; Starting amount of sugar
+    set birth-generation 0 ; During which generation a prey was born
+    set chromosome n-values 6 [one-of [0 1]] ; Create 6 genes
+    set fitness energy ; Starting fitness = starting energy level
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
+  set generation 0 ; Starting generation
   reset-ticks
 end
 
-;; Genetics
-to genetics-setup
-  ask preys [
-    set chromosome (list 0 0 0) ; Initialise genes for each prey
-    set fitness 0 ; Initialise fitness score
-  ]
-end
-
-; Evaluate prey fitness
-to fitness-evaluation
-  ask preys [
-    let fitness-value get-fitness-value ; Get the average fitness
-    if is-number? fitness-value [
-      set fitness fitness-value ; Assign it to fitness
-    ]
-  ]
-end
-
-; Calculate fitness
-to-report get-fitness-value
-  let energy-value energy / maxEnergy ; Ratio of current energy to maximum possible
-  let distance-value 1 - (distance [self] of max-one-of patches with [pcolor = 47] [vision] / vision) ; How close prey is to sugar patch
-  let turtles-on-patch turtles-on patch-here
-  let efficiency-value count turtles-on-patch with [color = 47] / vision ; Checking how many turtles are on the same patch
-  let fitness-value (energy-value + distance-value + efficiency-value) / 3 ; Average fitness
-
-  report fitness-value
-end
-
-; Mutation
-to mutate
-  let random-index random 3 ; Select 1 out of 3 genes randomly
-  let new-value random 100
-
-  ask preys [
-    let current-chromosome [chromosome] of myself ; Retrieve the chromosome of the current prey
-    let mutated-chromosome replace-item random-index current-chromosome new-value ; Create a new chromosome
-
-    set chromosome mutated-chromosome ; Give the current prey a new chromosome
-  ]
-end
-
-
-; Crossover
-to crossover [parent1 parent2]
-  let crossover-point random 3 ; Select 1 random gene
-  let parent1-chromosome [chromosome] of parent1 ; Get chromosomes
-  let parent2-chromosome [chromosome] of parent2
-  ; Build new chromosomes for offsprings
-  let child1-chromosome sentence (sublist parent1-chromosome 0 crossover-point) (sublist parent2-chromosome crossover-point 3)
-  let child2-chromosome sentence (sublist parent2-chromosome 0 crossover-point) (sublist parent1-chromosome crossover-point 3)
-
-  ; Hatch function
-  hatch-offspring child1-chromosome child2-chromosome
-end
-
-
-; Reproduce
-to hatch-offspring [chromosome1 chromosome2]
-  let selected-parents n-of 2 preys with [ selection-method ] ; Select 2 parents
-  ; Retrieve chromosomes
-  let parentX-chromosome1 [chromosome] of one-of selected-parents
-  let parentX-chromosome2 [chromosome] of one-of (other selected-parents)
-
-  hatch 1 [
-    set chromosome ifelse random-float 1 < 0.5 [ chromosome1][ chromosome2 ] ; Roll a number and pick random chromosome
-    set color orange
-    set size 1
-    set vision 50
-    set energy random 60
-    setxy random-xcor random-ycor
-
-    ; Evaluate offsprings fitness
-    fitness-evaluation myself
-  ]
-end
-
-; Select preys with highest fitness for reproduction cycle
-to-report selection-method
-  report [one-of preys with-max [fitness]]
-end
-
-; WATER PRESSURE
+;-----------------------------WATER PRESSURE---------------------------------
 to calculate-water-pressure
   ask patches [
     set water-pressure 1.2 ; Initialize pressure
@@ -173,23 +162,22 @@ to calculate-water-pressure
   ]
 end
 
-; START THE SIMULATION
+;-----------------------------SIMULATION GO---------------------------------
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
-  ask preys [
-    move-prey
-    eat-sugar-prey
-    fitness-evaluation myself ; Update fitness
-    if random-float 1 < mutation-rate [ mutate myself ] ; Random chromosome changes
+  ask preys[
+    if any? preys [
+      move-prey
+      eat-sugar-prey
+
+      if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
+        evolution ; Selection + Crossover + Mutation + Hatching
+        calculate-fitness
+        set generation generation + 1
+      ]
+    ]
   ]
-
-  ; Parent selection
-  let selected-preys n-of (count preys) preys
-  let parent1 one-of selected-preys
-  let parent2 one-of (other selected-preys)
-
-  if random-float 1 < crossover-rate [ crossover parent1 parent2 ]
 
   ; If fire/heat simulation selected
   if selected-simulation = "Fire/Heat"[
@@ -272,62 +260,20 @@ to update-patch
   ]
 end
 
+;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
-  let best-patch max-one-of patches in-cone vision 50 [ sugar ]; Find a patch with most sugar within radius
-  if best-patch != nobody and pcolor != blue - 1.5 [ ; If the patch is found
+  let best-patch max-one-of patches in-cone vision 50 [ sugar ] ; Find a patch with most sugar within radius
+  if best-patch != nobody [ ; If the patch is found
     ifelse random 100 < 45 [  ; Random movement chance
       random-movement
     ] [
       face best-patch  ; Face the patch with most sugar
-      fd 1 ; Move forward
-
-      if pcolor = blue - 1.5 or pcolor = blue [ ; If it goes into water, dies
-        set energy 0
-        check-death
+      fd speed ; Move forward
       ]
       set energy energy - 4
-      ; Uncomment line below if you want color to scale depending on how much energy left
-       ;set color scale-color orange energy 200 0
       check-death
-      ifelse sugar-count?
-    [ set label energy ]
-    [set label "" ]
       ]
-    ]
-end
-; PREY EAT SUGAR
-to eat-sugar-prey
-  ask preys [
-    if energy < maxEnergy [ ; If prey holds less sugar than maximum allowed
-    if pcolor = 47 [
-      set pcolor black
-        let sugar-consumed min (list [sugar] of patch-here (maxEnergy - energy)) ; Calculate how much sugar was consumed
-        set energy (energy + [sugar] of patch-here) ; Take sugar from patch and add it to prey
-        ask patch-here [
-          set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
-          set sugar-last-consumed ticks ; Update timer
-        ]
-    ifelse sugar-count?
-    [ set label energy ]
-    [ set label "" ]
-      ]
-    ]
-    if energy > maxEnergy [ set energy maxEnergy ] ; If the energy goes above maxEnergy, set it to maxEnergy
-  ]
-end
-; PREY REPRODUCTION
-to reproduce-prey
-  ask preys [
-  if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
-    set energy int (energy / 2) ; Divide the energy between parent and offspring
-    set prey-birth-count (prey-birth-count + 1) ; Count how many are born
-    hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
-      ifelse sugar-count?
-    [ set label energy ]
-    [set label "" ]
-    ]
-  ]
 end
 
 ; RANDOM MOVEMENT
@@ -335,32 +281,149 @@ to random-movement
   rt random 50 ; Right turn
   lt random 50 ; Left turn
   fd 1 ; Forward
-  if pcolor = blue - 1.5 [
-        set energy 0
-        check-death
-      ]
-  set energy energy - 2 ; Consume 2 sugar after move
 
-  ; Uncomment line below if you want color to scale depending on how much energy left
-  ;ask preys [
-      ;set color scale-color orange energy 200 0 ; Set colour depending amount of energy a prey holds (brighter to darker)
-  ;]
-
-      check-death
-      ifelse sugar-count?
-    [ set label energy ]
-    [ set label "" ]
+  set energy energy - 2
+  check-death
 end
 
-; CHECK DEATH
+;-----------------------------FEED---------------------------------
+; PREY EAT SUGAR
+to eat-sugar-prey
+  ask preys [
+    if energy < maxEnergy [ ; If prey holds less sugar than maximum allowed
+      if pcolor = 47 [
+        set pcolor black
+        let sugar-consumed min (list [sugar] of patch-here (maxEnergy - energy)) ; Calculate how much sugar was consumed
+        set energy (energy + [sugar] of patch-here) ; Take sugar from patch and add it to prey
+
+        ask patch-here [
+          set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
+          set sugar-last-consumed ticks ; Update timer
+        ]
+      ]
+    ]
+  if energy > maxEnergy [ set energy maxEnergy ] ; If the energy goes above maxEnergy, set it to maxEnergy
+  ]
+end
+
+;-----------------------------REPRODUCTION---------------------------------
+; PREY REPRODUCTION
+;to reproduce-prey
+ ; ask preys [
+   ; if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
+     ; set energy int (energy / 2) ; Divide the energy between parent and offspring
+     ; set prey-birth-count (prey-birth-count + 1) ; Count how many are born
+      ; Hatch an offspring and move it forward by 1 step, set birth generation
+      ;hatch int (1) [
+        ;rt random-float 360
+        ;fd 1
+        ;set birth-generation generation]
+    ;]
+  ;]
+;end
+
+;-----------------------------CHECK-DEATH---------------------------------
 to check-death
   ask preys [
-    if energy <= 0 [ ; If prey has no sugar left
-   set prey-death-count (prey-death-count + 1) ; Increase death count
-   die ; Remove the turtle
+    if energy <= 0 [
+   set prey-death-count (prey-death-count + 1)
+   die
     ]
   ]
 end
+
+;-----------------------------GENETIC ALGORITHM---------------------------------
+; FITNESS CALCULATION
+to calculate-fitness
+  ask preys [
+    let total-chromosomes sum chromosome
+    let efficiency ifelse-value total-chromosomes != 0 [energy / sum chromosome] [0] ; Calculate efficiency by dividing current energy by the sum of genes in chromosome
+    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0] ; Minimum distance to any predator, 0 if no predators alive
+
+    ; Calculate fitness
+    ; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
+    ; Add 1 to ensure expression doesnt become undefined when 0
+    ; "efficiency-weight": Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
+    ; "distance-weight": Lower weight to indicate that prey should keep more distance from presdators
+    let fitness-calc efficiency-weight * efficiency + distance-weight * (1 / (distance-from-predator + 1))
+    ; Set fitness
+    set fitness round fitness-calc
+  ]
+end
+
+; CROSSOVER
+to-report crossover [parent1 parent2]
+  ; Select a random cut point within the length of either parent's chromosome
+  let cut-point random length [chromosome] of parent1
+
+  ; Extract sublists (genes) from parents
+  let parent1-genes sublist [chromosome] of parent1 0 cut-point
+  let parent2-genes sublist [chromosome] of parent2 cut-point (length [chromosome] of parent2 - 1)
+
+  ; Combine genes to form offspring chromosome
+  let offspring-chromo lput parent1-genes parent2-genes
+
+  ; Report the newly created offspring chromosome
+  report offspring-chromo
+end
+
+
+
+
+; MUTATION
+to-report mutation [chromosome-to-mutate]
+  let mutated-chromo map [b -> ; Anonymous reporter -> , b - single element(gene 0/1)
+    ifelse-value random-float 1 < mutation-rate ; Roll a number, check if its less than mutation rate
+    [(ifelse-value b = 0 [1] [0])] ; Flip the bit, if b=0 then 1, if b=1 then 0
+    [b] ; Remain unchanged
+  ] chromosome-to-mutate
+  report mutated-chromo
+end
+
+to hatch-offspring [mut-chromo]
+  hatch 1 [
+    set energy random 60 + 20 ; Give random energy 60-80
+    set chromosome mut-chromo ; Give mutated chromosome
+    set birth-generation generation
+    set color red
+    rt random-float 360
+    fd 1
+  ]
+end
+
+; EVOLUTION <---------
+to evolution
+  let selected-preys sort-on [fitness] preys ; Sort preys based on fitness
+  let top-half sublist selected-preys 0 ((count preys) / 2) ; Select the top half based on fitness
+
+  if top-half != nobody [ ; If the list is not empty
+  ; Select parents
+  let parent1 one-of top-half
+  let parent2 one-of top-half
+
+  if parent1 != nobody and parent2 != nobody [ ; If parent1 & parent2 is not empty
+      ; Perform crossover
+      let offspring-cross-chromo crossover parent1 parent2 ; Create offspring chromosome
+
+      ; Perform mutation
+      let mutated-chromo mutation offspring-cross-chromo ; Mutate the offsprings chromosome
+
+      ; Get parents energy
+      let parent1-energy [energy] of parent1
+      let parent2-energy [energy] of parent2
+
+      ; Perform hatching
+      if count preys < prey-carrying-capacity [ ; If within carrying capacity
+        if (parent1-energy > 89) or (parent2-energy > 89) [ ; If parent1 or parent2 has 89+ energy
+          hatch-offspring mutated-chromo ; Hatch
+        ]
+      ]
+    ]
+  ]
+end
+
+; Copyright 2024 Edgar Park.
+; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
 451
@@ -424,10 +487,10 @@ NIL
 0
 
 SLIDER
-160
-38
-292
-71
+315
+37
+444
+70
 initial-prey-number
 initial-prey-number
 0
@@ -437,17 +500,6 @@ initial-prey-number
 1
 NIL
 HORIZONTAL
-
-SWITCH
-232
-208
-351
-241
-sugar-count?
-sugar-count?
-1
-1
--1000
 
 PLOT
 892
@@ -531,10 +583,10 @@ prey-birth-count
 11
 
 SLIDER
-243
-82
-351
-115
+198
+37
+306
+70
 maxEnergy
 maxEnergy
 0
@@ -546,10 +598,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-299
-39
-447
-72
+316
+73
+444
+106
 prey-carrying-capacity
 prey-carrying-capacity
 0
@@ -561,9 +613,9 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-27
+30
 10
-130
+133
 28
 Simulation Setup
 13
@@ -581,9 +633,9 @@ Start Simulation
 1
 
 TEXTBOX
-275
+288
 10
-326
+339
 28
 Settings
 13
@@ -591,10 +643,10 @@ Settings
 1
 
 SLIDER
-204
-164
-376
 197
+73
+307
+106
 sugar-density
 sugar-density
 0
@@ -607,9 +659,9 @@ HORIZONTAL
 
 SLIDER
 0
-341
-172
-374
+339
+156
+372
 fire-spread-probability
 fire-spread-probability
 0
@@ -653,7 +705,7 @@ selected-simulation
 SLIDER
 0
 286
-172
+155
 319
 flooding-probability
 flooding-probability
@@ -666,19 +718,9 @@ flooding-probability
 HORIZONTAL
 
 TEXTBOX
-280
-144
-308
-162
-Sugar
-10
-0.0
-1
-
-TEXTBOX
-15
+7
 266
-171
+163
 284
 Environmental Change settings
 10
@@ -686,10 +728,10 @@ Environmental Change settings
 1
 
 SLIDER
-25
-414
-141
-447
+20
+412
+136
+445
 south-wind
 south-wind
 -25
@@ -701,10 +743,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-25
-378
-141
-411
+20
+376
+136
+409
 west-wind
 west-wind
 -25
@@ -716,10 +758,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-241
-287
-413
-320
+315
+147
+445
+180
 mutation-rate
 mutation-rate
 0
@@ -731,29 +773,100 @@ NIL
 HORIZONTAL
 
 SLIDER
-241
-325
-413
-358
+316
+185
+445
+218
 crossover-rate
 crossover-rate
 0
 1
-0.9
+0.91
 0.01
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-278
-265
-395
-283
+328
+125
+445
+143
 Genetic Algorith settings
 10
 0.0
 1
+
+SLIDER
+211
+231
+303
+264
+gen-tick
+gen-tick
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+229
+146
+302
+191
+NIL
+generation
+17
+1
+11
+
+SLIDER
+181
+195
+303
+228
+max-generations
+max-generations
+0
+500
+95.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+315
+224
+446
+257
+efficiency-weight
+efficiency-weight
+0
+1
+0.6
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+315
+263
+447
+296
+distance-weight
+distance-weight
+0
+1
+0.4
+0.1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
