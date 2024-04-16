@@ -438,10 +438,10 @@ ticks
 30.0
 
 BUTTON
-41
-161
-109
-195
+42
+155
+110
+189
 NIL
 go
 T
@@ -455,10 +455,10 @@ NIL
 0
 
 BUTTON
-38
-198
-113
-234
+39
+192
+114
+228
 go-once
 go
 NIL
@@ -486,17 +486,6 @@ initial-prey-number
 NIL
 HORIZONTAL
 
-SWITCH
-301
-332
-420
-365
-sugar-count?
-sugar-count?
-1
-1
--1000
-
 PLOT
 892
 15
@@ -513,12 +502,12 @@ true
 true
 "" ""
 PENS
-"Preys" 1.0 0 -14454117 true "" "plot count preys"
+"Preys" 1.0 0 -817084 true "" "plot count preys"
 "Predators" 1.0 0 -15040220 true "" "plot count predators"
-"Prey Birth" 1.0 0 -8275240 true "" "plot prey-birth-count"
-"Predator Birth" 1.0 0 -8330359 true "" "plot predator-birth-count"
-"Prey Death" 1.0 0 -5298144 true "" "plot prey-death-count"
-"Predator Death" 1.0 0 -3844592 true "" "plot predator-death-count"
+"Prey Birth" 1.0 0 -204336 true "" "plot prey-birth-count"
+"Predator Birth" 1.0 0 -2754856 true "" "plot predator-birth-count"
+"Prey Death" 1.0 0 -10146808 true "" "plot prey-death-count"
+"Predator Death" 1.0 0 -16110067 true "" "plot predator-death-count"
 
 MONITOR
 892
@@ -582,10 +571,10 @@ prey-birth-count
 11
 
 SLIDER
-244
-115
-352
-148
+317
+113
+425
+146
 maxEnergy
 maxEnergy
 0
@@ -622,10 +611,10 @@ Simulation Setup
 1
 
 TEXTBOX
-32
-140
-133
-158
+33
+134
+134
+152
 Start Simulation
 13
 0.0
@@ -642,10 +631,10 @@ Settings
 1
 
 SLIDER
-273
-288
-445
-321
+171
+113
+281
+146
 sugar-density
 sugar-density
 0
@@ -658,9 +647,9 @@ HORIZONTAL
 
 SLIDER
 0
-341
-172
-374
+371
+147
+404
 fire-spread-probability
 fire-spread-probability
 0
@@ -766,9 +755,9 @@ selected-simulation
 
 SLIDER
 0
-286
-172
-319
+333
+147
+366
 flooding-probability
 flooding-probability
 0
@@ -780,30 +769,20 @@ flooding-probability
 HORIZONTAL
 
 TEXTBOX
-349
-268
-377
-286
-Sugar
-10
-0.0
-1
-
-TEXTBOX
-15
-266
-171
-284
+3
+313
+159
+331
 Environmental Change settings
 10
 0.0
 1
 
 SLIDER
-25
-414
-141
-447
+26
+445
+119
+478
 south-wind
 south-wind
 -25
@@ -815,15 +794,261 @@ NIL
 HORIZONTAL
 
 SLIDER
-25
-378
-141
-411
+26
+409
+118
+442
 west-wind
 west-wind
 -25
 25
 10.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+310
+156
+440
+174
+Genetic Algorithm settings
+10
+0.0
+1
+
+SLIDER
+310
+175
+434
+208
+max-generations
+max-generations
+0
+500
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+310
+215
+436
+248
+crossover-rate
+crossover-rate
+0
+1
+0.7
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+310
+256
+436
+289
+mutation-rate
+mutation-rate
+0
+1
+0.2
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+310
+297
+438
+330
+mutation-magnitude
+mutation-magnitude
+0
+1
+0.2
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+311
+357
+440
+390
+efficiency-weight
+efficiency-weight
+0
+1
+0.4
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+337
+337
+413
+355
+Fitness settings
+10
+0.0
+1
+
+SLIDER
+311
+397
+441
+430
+distance-weight
+distance-weight
+0
+1
+0.4
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+204
+364
+305
+390
+Sugar to energy conversion-> Reward
+10
+0.0
+1
+
+TEXTBOX
+200
+400
+309
+426
+Distance to predator-> Penalty
+10
+0.0
+1
+
+SLIDER
+311
+453
+443
+486
+parents-num
+parents-num
+0
+100
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+350
+437
+393
+455
+Selection\n
+10
+0.0
+1
+
+TEXTBOX
+491
+463
+620
+489
+After how many ticks new generation occurs->
+10
+0.0
+1
+
+SLIDER
+616
+459
+708
+492
+gen-tick
+gen-tick
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+720
+453
+841
+498
+Current Generation
+generation
+17
+1
+11
+
+TEXTBOX
+171
+155
+283
+173
+Neural Network settings
+10
+0.0
+1
+
+SLIDER
+167
+176
+283
+209
+turn-sensitivity
+turn-sensitivity
+0
+1
+0.2
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+166
+215
+283
+248
+speed-sensitivity
+speed-sensitivity
+0
+1
+0.5
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+161
+254
+290
+287
+num-chromosomes
+num-chromosomes
+0
+500
+50.0
 1
 1
 NIL

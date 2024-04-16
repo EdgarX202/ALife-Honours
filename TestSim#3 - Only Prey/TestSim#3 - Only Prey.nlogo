@@ -517,9 +517,9 @@ true
 true
 "" ""
 PENS
-"Preys" 1.0 0 -14454117 true "" "plot count preys"
-"Prey Birth" 1.0 0 -8275240 true "" "plot prey-birth-count"
-"Prey Death" 1.0 0 -5298144 true "" "plot prey-death-count"
+"Preys" 1.0 0 -817084 true "" "plot count preys"
+"Prey Birth" 1.0 0 -204336 true "" "plot prey-birth-count"
+"Prey Death" 1.0 0 -10146808 true "" "plot prey-death-count"
 
 MONITOR
 892
@@ -659,9 +659,9 @@ HORIZONTAL
 
 SLIDER
 0
-339
+382
 156
-372
+415
 fire-spread-probability
 fire-spread-probability
 0
@@ -704,9 +704,9 @@ selected-simulation
 
 SLIDER
 0
-286
+343
 155
-319
+376
 flooding-probability
 flooding-probability
 0
@@ -719,9 +719,9 @@ HORIZONTAL
 
 TEXTBOX
 7
-266
+323
 163
-284
+341
 Environmental Change settings
 10
 0.0
@@ -729,9 +729,9 @@ Environmental Change settings
 
 SLIDER
 20
-412
+455
 136
-445
+488
 south-wind
 south-wind
 -25
@@ -744,9 +744,9 @@ HORIZONTAL
 
 SLIDER
 20
-376
+419
 136
-409
+452
 west-wind
 west-wind
 -25
@@ -759,9 +759,9 @@ HORIZONTAL
 
 SLIDER
 315
-147
+240
 445
-180
+273
 mutation-rate
 mutation-rate
 0
@@ -773,35 +773,35 @@ NIL
 HORIZONTAL
 
 SLIDER
-316
-185
-445
-218
+315
+202
+444
+235
 crossover-rate
 crossover-rate
 0
 1
-0.91
+0.74
 0.01
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-328
-125
-445
-143
+321
+141
+438
+159
 Genetic Algorith settings
 10
 0.0
 1
 
 SLIDER
-211
-231
-303
-264
+598
+458
+690
+491
 gen-tick
 gen-tick
 0
@@ -813,21 +813,21 @@ NIL
 HORIZONTAL
 
 MONITOR
-229
-146
-302
-191
-NIL
+695
+452
+816
+497
+Current Generation
 generation
 17
 1
 11
 
 SLIDER
-181
-195
-303
-228
+314
+163
+444
+196
 max-generations
 max-generations
 0
@@ -839,31 +839,166 @@ NIL
 HORIZONTAL
 
 SLIDER
-315
-224
-446
-257
+314
+339
+445
+372
 efficiency-weight
 efficiency-weight
 0
 1
-0.6
+0.4
 0.1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-315
-263
-447
-296
+314
+377
+446
+410
 distance-weight
 distance-weight
 0
 1
 0.4
 0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+474
+461
+598
+487
+After how many ticks new generation occurs->
+10
+0.0
+1
+
+SLIDER
+315
+279
+446
+312
+mutation-magnitude
+mutation-magnitude
+0
+1
+0.2
+0.01
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+344
+319
+426
+337
+Fitness settings
+10
+0.0
+1
+
+TEXTBOX
+206
+345
+317
+371
+Sugar to energy conversion-> Reward
+10
+0.0
+1
+
+TEXTBOX
+201
+381
+322
+406
+Distance to predator-> Penalty
+10
+0.0
+1
+
+TEXTBOX
+354
+431
+398
+449
+Selection
+10
+0.0
+1
+
+SLIDER
+313
+451
+446
+484
+parents-num
+parents-num
+0
+100
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+165
+146
+278
+164
+Neural Network settings
+10
+0.0
+1
+
+SLIDER
+165
+165
+274
+198
+turn-sensitivity
+turn-sensitivity
+0
+1
+0.2
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+166
+202
+274
+235
+speed-sensitivity
+speed-sensitivity
+0
+1
+0.5
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+166
+240
+293
+273
+num-chromosomes
+num-chromosomes
+0
+500
+50.0
+1
 1
 NIL
 HORIZONTAL

@@ -757,10 +757,10 @@ predator-birth-count
 11
 
 SLIDER
-320
-181
-444
-214
+318
+173
+442
+206
 max-generations
 max-generations
 0
@@ -772,61 +772,61 @@ NIL
 HORIZONTAL
 
 SLIDER
-318
-261
-445
-294
+316
+254
+443
+287
 mutation-rate
 mutation-rate
 0
 1
 0.2
-0.1
+0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-319
-221
-444
-254
+317
+214
+442
+247
 crossover-rate
 crossover-rate
 0
 1
 0.7
-0.1
+0.01
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-318
-161
-447
-179
+320
+150
+449
+168
 Genetic Algortithm settings
 10
 0.0
 1
 
 MONITOR
-239
-180
-312
-225
-NIL
+698
+450
+819
+495
+Current Generation
 generation
 17
 1
 11
 
 SLIDER
-222
-230
-314
-263
+596
+456
+688
+489
 gen-tick
 gen-tick
 0
@@ -838,20 +838,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-96
-232
-218
-258
+470
+459
+592
+485
 After how many ticks new generation occurs->
 10
 0.0
 1
 
 SLIDER
-318
-371
-445
-404
+314
+347
+441
+380
 efficiency-weight
 efficiency-weight
 0
@@ -863,10 +863,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-318
-407
-446
-440
+314
+383
+442
+416
 distance-weight
 distance-weight
 0
@@ -878,40 +878,40 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-351
-356
-426
-374
+347
+332
+422
+350
 Fitness settings
 10
 0.0
 1
 
 TEXTBOX
-209
-414
-319
-440
+206
+386
+316
+412
 Distance to predator-> Penalty
 10
 0.0
 1
 
 TEXTBOX
-215
+209
+351
+315
 377
-321
-403
 Sugar to energy conversion-> Reward
 10
 0.0
 1
 
 SLIDER
-321
-472
-448
-505
+316
+449
+443
+482
 parents-num
 parents-num
 0
@@ -923,20 +923,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-364
-452
-411
-470
+359
+427
+406
+445
 Selection
 10
 0.0
 1
 
 SLIDER
-23
-311
-139
-344
+20
+211
+136
+244
 turn-sensitivity
 turn-sensitivity
 0
@@ -948,10 +948,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-23
-353
-140
-386
+20
+248
+137
+281
 speed-sensitivity
 speed-sensitivity
 0
@@ -963,20 +963,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-28
-289
-143
-307
+23
+190
+138
+208
 Neural Network settings
 10
 0.0
 1
 
 SLIDER
-73
-478
-206
-511
+11
+285
+147
+318
 num-chromosomes
 num-chromosomes
 0
@@ -988,16 +988,16 @@ NIL
 HORIZONTAL
 
 SLIDER
-317
-300
-445
-333
+315
+293
+443
+326
 mutation-magnitude
 mutation-magnitude
 0
 1
 0.2
-0.1
+0.01
 1
 NIL
 HORIZONTAL
