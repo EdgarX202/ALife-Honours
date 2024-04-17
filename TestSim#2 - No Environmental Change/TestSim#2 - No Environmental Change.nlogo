@@ -50,7 +50,10 @@ to setup-nn [input-size hidden-size output-size]
   repeat hidden-size [
     set hidden-layer lput 0 hidden-layer  ; Add 0 as initial values
   ]
-  set output-layer output-size
+  set output-layer []
+  repeat output-size [
+    set output-layer lput 0 output-layer ; Add 0 as initial values
+  ]
 
   ; Initialise weights for every chromosome
   create-chromosomes num-chromosomes [
@@ -104,7 +107,7 @@ to feedforward [chromo]
 
     ; Calculate HIDDEN layer
     foreach hidden-layer [ h -> ; Loop through hidden layer
-        foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron
+        foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron (input-hidden)
          let weight item j access-weights ; Get the weight from j index
          set total-weighted-sum total-weighted-sum + (input-value * weight) ; Calculate weighted sum
          set j j + 1 ; Increment inner loop
@@ -120,7 +123,29 @@ to feedforward [chromo]
     ; print hidden-layer
     ; DEBUG END <---------
 
+
+    ; Variables for the output layer
+    let access-weights-output [weights] of chromo ; Get the weights of a chromosome
+    let k 0 ; Index for outer output-layer loop
+    let l 0 ; Index for inner hidden-inputs loop
+    let total-weighted-sum-output 0
+
     ; Calculate OUTPUT layer
+    foreach output-layer [ o -> ; Loop through output layer
+     foreach hidden-layer [ hidden-value -> ; Calculate weighted sum for each neuron (hidden-output)
+       let weight item l access-weights-output ; Get the weight from l index
+       set total-weighted-sum-output total-weighted-sum-output + (hidden-value * weight) ; Calculate weighted sum
+        set l l + 1 ; Increment inner loop
+      ]
+      set total-weighted-sum-output total-weighted-sum-output + bias ; Add bias
+      let sigmoid-output-layer sigmoid(total-weighted-sum-output) ; Apply sigmoid activation function
+      set output-layer replace-item k output-layer sigmoid-output-layer ; Replace output layer items with calculated final values
+      set k k + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print output-layer
+    ; DEBUG END <---------
   ]
 end
 
