@@ -360,15 +360,6 @@ to move-prey
   ; print outputs
   ; DEBUG END <------------
 
-  ; Predator evasion
-  if predator-target != nobody [
-     let location-predator towards predator-target ; Angle where predator is
-     rt location-predator + 180 ; Turn away from the predator
-     fd speed * 1.5 ; Increase speed
-     set energy energy - 2
-     check-death
-  ]
-
   ; Close distance predator evasion
   ifelse distance-to-predator != nobody and distance-to-predator < 15 [
     ifelse turn-left-output > turn-right-output [ ; If output 0 > output 1
@@ -546,14 +537,35 @@ to-report selection [ turtle-pool ]
   report parents
 end
 
-; CROSSOVER + MUTATION
+; UNIFORM CROSSOVER + MUTATION
 to-report crossover-mutate [parent1 parent2]
-  ; Get parent chromosomes
-  let parent1-chromo [chromosomes] of parent1
-  let parent2-chromo [chromosomes] of parent2
+  ; Getting parent chromosomes
+  let parent1-chromo [personal-chromo] of parent1
+  let parent2-chromo [personal-chromo] of parent2
 
-  ; Perform one point crossover **
+  ; Access weights
+  let access-weights-parent1 [weights] of parent1-chromo
+  let access-weights-parent2 [weights] of parent2-chromo
 
+  ; Empty child list for chromosomes
+  let child-chromo1 []
+  let child-chromo2 []
+
+  ; Uniform crossover
+  let p 0
+  foreach access-weights-parent1 [ gene ->
+    ifelse random-float 1 < 0.5 [ ; 50% chance to swap
+      set child-chromo1 lput gene child-chromo1
+      set child-chromo2 lput item p access-weights-parent2 child-chromo2
+    ] [
+      set child-chromo1 lput item p access-weights-parent2 child-chromo1
+      set child-chromo2 lput gene child-chromo2
+    ]
+    set p p + 1
+  ]
+
+  ; Report the new chromosomes (Modify as needed)
+  report (list child-chromo1 child-chromo2)
 end
 
 
@@ -572,28 +584,41 @@ end
 ; EVOLUTION <---------
 to evolution
   ; Create old generation, do not include new offsprings
-  let old-generation (turtle-set preys)
+  let old-generation-prey (turtle-set preys)
+  let old-generation-predator (turtle-set predators)
 
-  let selected-parents selection
+  let prey-parents selection preys
+  let predator-parents selection predators
 
   ; Crossover and mutation
-  foreach selected-parents [
+  ; PREY
+  foreach prey-parents [
 
     ; Separate both parents into parent1 and parent2
-    let parent-pair selected-parents
+    let parent-pair prey-parents
     let parent1 item 0 parent-pair
     let parent2 item 1 parent-pair
 
     let crossed-children crossover-mutate parent1 parent2
-   ; let child1 item 0 crossed-children
 
-    ;mutate child1
-    ;hatch-offspring child1
   ]
 
-  ask old-generation [die]
+  ; PREDATOR
+  foreach predator-parents [
+
+    ; Separate both parents into parent1 and parent2
+    let parent-pair predator-parents
+    let parent1 item 0 parent-pair
+    let parent2 item 1 parent-pair
+
+    let crossed-children crossover-mutate parent1 parent2
+  ]
+
+  ask old-generation-prey [die]
+  ask old-generation-predator [die]
 end
 
+; TEST SIMULATION #2 - No Environmental Change
 ; Copyright 2024 Edgar Park.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
@@ -667,7 +692,7 @@ initial-prey-number
 initial-prey-number
 0
 100
-50.0
+20.0
 1
 1
 NIL
@@ -780,8 +805,8 @@ SLIDER
 prey-carrying-capacity
 prey-carrying-capacity
 0
-1000
-200.0
+200
+50.0
 1
 1
 NIL
@@ -849,7 +874,7 @@ initial-predator-number
 initial-predator-number
 0
 100
-50.0
+15.0
 1
 1
 NIL
@@ -863,8 +888,8 @@ SLIDER
 predator-carrying-capacity
 predator-carrying-capacity
 0
-1000
-200.0
+200
+50.0
 1
 1
 NIL
@@ -1088,7 +1113,7 @@ turn-sensitivity
 turn-sensitivity
 0
 1
-0.3
+0.4
 0.1
 1
 NIL
@@ -1103,7 +1128,7 @@ speed-sensitivity
 speed-sensitivity
 0
 1
-0.4
+0.7
 0.1
 1
 NIL
@@ -1127,8 +1152,8 @@ SLIDER
 num-chromosomes
 num-chromosomes
 0
-500
-100.0
+200
+30.0
 1
 1
 NIL

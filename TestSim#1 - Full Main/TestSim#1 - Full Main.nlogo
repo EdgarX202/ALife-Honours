@@ -1,4 +1,4 @@
-;-----------------------------GLOBAL VARIABLES---------------------------------
+ ;-----------------------------GLOBAL VARIABLES---------------------------------
 globals [
   ; Birth
   prey-death-count
@@ -11,21 +11,24 @@ globals [
   sugar-regrowth-delay
   ; GA
   generation
-  ; NN
-  input-layer
-  hidden-layer
-  output-layer
-  learning-rate
+  ; NN PREY
+  input-layer-prey
+  hidden-layer-prey
+  output-layer-prey
+  ; NN PREDATOR
+  input-layer-predator
+  hidden-layer-predator
+  output-layer-predator
 ]
 
 ;-----------------------------BREEDS---------------------------------
 breed [ predators predator ]
 breed [ preys prey ]
-breed [ neurons neuron ]
+breed [ chromosomes chromosome ]
 
 ;-----------------------------SHARED PROPERTIES---------------------------------
-links-own [
- weight ; Create links with weights between neurons
+chromosomes-own [
+  weights
 ]
 
 patches-own [
@@ -38,53 +41,216 @@ turtles-own [
   vision ; Using in-cone vision to see ahead
   energy ; How much sugar prey holds
   speed ; How fast turtle goes
-  movement
   birth-generation ; During which generation a turtle was born
-  chromosome ; A string of 0s and 1s
+  personal-chromo
   fitness ; How fit the turtle is
 ]
 
 ;-----------------------------SETUP---------------------------------
 ; SETUP NEURAL NETWORK
-to setup-nn [input-size hidden-size output-size rate]
-  set input-layer input-size
-  set hidden-layer hidden-size
-  set output-layer output-size
-  set learning-rate rate
+; PREY
+to setup-nn-prey [input-size hidden-size output-size]
+  set input-layer-prey input-size
+  set hidden-layer-prey []
+  set output-layer-prey []
 
-  ; Initialise weights between input and hidden layers
-  ask preys [
-    ask neurons [
-      create-link-with myself
-        [
-          set weight random-float 1
-      ]
+  ; Add 0 as initial values
+  repeat hidden-size [ set hidden-layer-prey lput 0 hidden-layer-prey ]
+  repeat output-size [ set output-layer-prey lput 0 output-layer-prey ]
+
+  ; Initialise weights for every chromosome
+  create-chromosomes num-chromosomes [
+    set weights []
+
+    ; Weights between input and hidden layers
+    repeat (input-size * hidden-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
     ]
-  ]
-  ; Initialise weights between hidden and output layers
-  ask neurons [
-    ask preys [
-      create-link-with myself
-        [
-          set weight random-float 1
-      ]
+
+    ; Weights between hidden and output layers
+    repeat (hidden-size * output-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
     ]
   ]
 end
 
-; SETUP FOR PREY NN
-to setup-prey-nn
-  ; (4 Inputs, 10 Hidden neurons, 3 Outputs, 0.1 Learning rate)
-  setup-nn 4 10 3 0.1
+; PREDATOR
+to setup-nn-predator [input-size hidden-size output-size]
+  set input-layer-predator input-size
+  set hidden-layer-predator []
+  set output-layer-predator []
+
+  ; Add 0 as initial values
+  repeat hidden-size [ set hidden-layer-predator lput 0 hidden-layer-predator ]
+  repeat output-size [ set output-layer-predator lput 0 output-layer-predator ]
+
+  ; Initialise weights for every chromosome
+  create-chromosomes num-chromosomes [
+    set weights []
+
+    ; Weights between input and hidden layers
+    repeat (input-size * hidden-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
+    ]
+
+    ; Weights between hidden and output layers
+    repeat (hidden-size * output-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
+    ]
+  ]
 end
 
-; DISTANCE TO PREDATOR AND SUGAR
+; DISTANCE TO TARGET
+; Using NetLogo primitive "distance"
+; calculate Euclidean distance between two agents
+; distance = sqrt((x2 - x1)^2 + (y2 - y1)^2)
 to-report calculate-distance [target]
-  ; Calculate distance between prey and target (sugar/predator)
-  ; Using Pythagorean theorem. Straight line
-  let dex [xcor] of target - [xcor] of myself
-  let dey [ycor] of target - [ycor] of myself
-  report sqrt (dx * dx + dy * dy)
+  ifelse target != nobody [
+    report distance target
+  ] [
+    report nobody ; In case targets dont exist anymore
+  ]
+end
+
+; PREY NN FEEDFORWARD
+to feedforward-prey [chromo]
+  ask preys [
+    ; Calculations for INPUT layer
+    ; Create new variable for storing single predator and single patch of sugar within preys vision
+    let predatorX one-of predators in-radius vision
+    let food one-of patches with [sugar > 0] in-radius vision
+    let water-hazard one-of patches with [ pcolor = blue - 1.5 ] in-radius vision
+
+    ; Get distance to predator/sugar
+    let distance-to-predator ifelse-value (predatorX != nobody) [calculate-distance predatorX] [0]
+    let distance-to-food ifelse-value (food != nobody) [calculate-distance food] [0]
+    let distance-to-water ifelse-value (water-hazard != nobody) [calculate-distance water-hazard] [0]
+
+    ; Get the list of INPUTS
+    let total-inputs (list distance-to-predator distance-to-food distance-to-water energy speed)
+
+    ; Variables for the hidden layer
+    let access-weights [weights] of chromo ; Get the weights of a chromosome
+    let bias (random-float 2 - 1) ; Random bias -1 to 1
+    let i 0 ; Index for outer hidden-layer loop
+    let j 0 ; Index for inner total-inputs loop
+    let total-weighted-sum 0
+
+    ; Calculate HIDDEN layer
+    foreach hidden-layer-prey [ h -> ; Loop through hidden layer
+        foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron (input-hidden)
+         let weight item j access-weights ; Get the weight from j index
+         set total-weighted-sum total-weighted-sum + (input-value * weight) ; Calculate weighted sum
+         set j j + 1 ; Increment inner loop
+      ]
+         set total-weighted-sum total-weighted-sum + bias ; Add bias
+         let sigmoid-output sigmoid(total-weighted-sum) ; Apply sigmoid activation function
+         set hidden-layer-prey replace-item i hidden-layer-prey sigmoid-output ; Replace hidden layer items with calculated values
+         set i i + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print access-weights
+    ; print hidden-layer
+    ; DEBUG END <---------
+
+
+    ; Variables for the output layer
+    let access-weights-output [weights] of chromo ; Get the weights of a chromosome
+    let k 0 ; Index for outer output-layer loop
+    let l 0 ; Index for inner hidden-inputs loop
+    let total-weighted-sum-output 0
+
+    ; Calculate OUTPUT layer
+    foreach output-layer-prey [ o -> ; Loop through output layer
+     foreach hidden-layer-prey [ hidden-value -> ; Calculate weighted sum for each neuron (hidden-output)
+       let weight item l access-weights-output ; Get the weight from l index
+       set total-weighted-sum-output total-weighted-sum-output + (hidden-value * weight) ; Calculate weighted sum
+        set l l + 1 ; Increment inner loop
+      ]
+      set total-weighted-sum-output total-weighted-sum-output + bias ; Add bias
+      let sigmoid-output-layer sigmoid(total-weighted-sum-output) ; Apply sigmoid activation function
+      set output-layer-prey replace-item k output-layer-prey sigmoid-output-layer ; Replace output layer items with calculated final values
+      set k k + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print output-layer-prey
+    ; DEBUG END <---------
+  ]
+end
+
+to feedforward-predator [chromo]
+  ask predators [
+    ; Calculations for INPUT layer
+    ; Create new variable for storing single prey within predators vision
+    let preyX one-of preys in-radius vision
+    let water-hazard one-of patches with [ pcolor = blue - 1.5 ] in-radius vision
+
+    ; Get distance to prey
+    let distance-to-prey ifelse-value (preyX != nobody) [calculate-distance preyX] [0]
+    let distance-to-water ifelse-value (water-hazard != nobody) [calculate-distance water-hazard] [0]
+
+    ; Get the list of INPUTS
+    let total-inputs (list distance-to-prey distance-to-water energy speed)
+
+    ; Variables for the hidden layer
+    let access-weights [weights] of chromo ; Get the weights of a chromosome
+    let bias (random-float 2 - 1) ; Random bias -1 to 1
+    let i 0 ; Index for outer hidden-layer loop
+    let j 0 ; Index for inner total-inputs loop
+    let total-weighted-sum 0
+
+    ; Calculate HIDDEN layer
+    foreach hidden-layer-predator [ h -> ; Loop through hidden layer
+        foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron (input-hidden)
+         let weight item j access-weights ; Get the weight from j index
+         set total-weighted-sum total-weighted-sum + (input-value * weight) ; Calculate weighted sum
+         set j j + 1 ; Increment inner loop
+      ]
+         set total-weighted-sum total-weighted-sum + bias ; Add bias
+         let sigmoid-output sigmoid(total-weighted-sum) ; Apply sigmoid activation function
+         set hidden-layer-predator replace-item i hidden-layer-predator sigmoid-output ; Replace hidden layer items with calculated values
+         set i i + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print access-weights
+    ; print hidden-layer-predator
+    ; DEBUG END <---------
+
+
+    ; Variables for the output layer
+    let access-weights-output [weights] of chromo ; Get the weights of a chromosome
+    let k 0 ; Index for outer output-layer loop
+    let l 0 ; Index for inner hidden-inputs loop
+    let total-weighted-sum-output 0
+
+    ; Calculate OUTPUT layer
+    foreach output-layer-predator [ o -> ; Loop through output layer
+     foreach hidden-layer-predator [ hidden-value -> ; Calculate weighted sum for each neuron (hidden-output)
+       let weight item l access-weights-output ; Get the weight from l index
+       set total-weighted-sum-output total-weighted-sum-output + (hidden-value * weight) ; Calculate weighted sum
+        set l l + 1 ; Increment inner loop
+      ]
+      set total-weighted-sum-output total-weighted-sum-output + bias ; Add bias
+      let sigmoid-output-layer sigmoid(total-weighted-sum-output) ; Apply sigmoid activation function
+      set output-layer-predator replace-item k output-layer-predator sigmoid-output-layer ; Replace output layer items with calculated final values
+      set k k + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print output-layer-predator
+    ; DEBUG END <---------
+  ]
+end
+
+; SIGMOID FUNCTION
+; Takes in a real number as input, squashes it into a range between 0 and 1.
+; The output forms and S-shaped curve.
+; It introduces non-linearity that enables NN to learn complex data that a linear function cant learn.
+to-report sigmoid [x]
+  report 1 / (1 + exp (-1 * x))
 end
 
 ; SETUP SUGAR
@@ -100,6 +266,10 @@ end
 ; SETUP BUTTON
 to setup
   clear-all
+
+  ; Setup neural network(Inputs, Hidden neurons, Outputs)
+    setup-nn-prey 5 5 4
+    setup-nn-predator 4 4 4
 
   ; Fire/Heat patches setup
   if selected-simulation = "Fire/Heat" [
@@ -128,13 +298,13 @@ to setup
   set-default-shape preys "circle" ; Shape of a prey
   create-preys initial-prey-number [ ; Set initial number of preys
     set color orange
-    set size 1
+    set size 1.5
     set vision 50
     set speed 1
-    set energy random 50 + 20 ; Starting amount of sugar
-    set birth-generation 0 ; During which generation a prey was born
-    set chromosome n-values 6 [one-of [0 1]] ; Create 6 genes <--------------------- use this in NN weight, 1 gene 1 weight??
+    set energy random 40 + 20 ; Starting amount of sugar
+    set birth-generation 1 ; During which generation a prey was born
     set fitness energy ; Starting fitness = starting energy level
+    set personal-chromo one-of chromosomes ; Assign a random chromosome from available chromosomes
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
@@ -144,8 +314,11 @@ to setup
     set color green
     set size 1.5
     set vision 50
-    set speed 1.2 ; 0.2 faster than prey
+    set speed 1
     set energy random 50 + 30 ; Starting amount of energy
+    set birth-generation 1 ; During which generation a prey was born
+    set fitness energy ; Starting fitness = starting energy level
+    set personal-chromo one-of chromosomes ; Assign a random chromosome from available chromosomes
     setxy random-xcor random-ycor ; Spawn at random locations
   ]
 
@@ -166,19 +339,27 @@ to calculate-water-pressure
   ]
 end
 
-; START THE SIMULATION
+;-----------------------------SIMULATION GO---------------------------------
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
-  ask preys [
-    move-prey
-    eat-sugar-prey
-    reproduce-prey
+   if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
+        ;evolution ; Selection + Crossover + Mutation + Hatching
+        ask preys [ calculate-fitness ticks ]
+        ask predators [ calculate-fitness ticks ]
+        set generation generation + 1
   ]
+
+  ask preys[
+      feedforward-prey personal-chromo ; Passing individual chromosome to neural network
+      move-prey
+      eat-sugar-prey
+      ]
+
   ask predators [
-    move-pred
-    kill-prey
-    reproduce-pred
+      feedforward-predator personal-chromo
+      move-predator
+      kill-prey
   ]
 
   ; If fire/heat simulation selected
@@ -266,89 +447,143 @@ to update-patch
   ]
 end
 
+;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
-  let best-patch max-one-of patches in-cone vision 50 [ sugar ]; Find a patch with most sugar within radius
-  if best-patch != nobody and pcolor != blue - 1.5 [ ; If the patch is found
-    ifelse random 100 < 45 [  ; Random movement chance
-      random-movement
-    ] [
-      face best-patch  ; Face the patch with most sugar
-      fd 1 ; Move forward
+  let outputs output-layer-prey ; Store all outputs
 
-      if pcolor = blue - 1.5 or pcolor = blue [ ; If it goes into water, dies
-        set energy 0
+  let turn-left-output item 0 outputs
+  let turn-right-output item 1 outputs
+  let accelerate-output item 2 outputs
+  let decelerate-output item 3 outputs
+
+  let distance-to-predator calculate-distance one-of predators
+  let predator-target one-of predators in-radius vision
+
+  ; DEBUG START <----------
+  ; print outputs
+  ; DEBUG END <------------
+
+  ; Close distance predator evasion
+  ifelse distance-to-predator != nobody and distance-to-predator < 15 [
+    ifelse turn-left-output > turn-right-output [ ; If output 0 > output 1
+      rt turn-left-output * turn-sensitivity ; Right turn
+      set energy energy - 2
+      check-death
+    ] [
+      lt turn-right-output * turn-sensitivity ; Otherwise left turn
+      set energy energy - 2
+      check-death
+    ]
+  ] [ ; ELSE
+    ; If predator is not in vision - regular movement
+    if accelerate-output > decelerate-output [ ; If output 3 > output 4
+      fd speed * speed-sensitivity ; Move forward faster
+      set energy energy - 2
+      check-death
+    ]
+    if decelerate-output > 0.6 [ ; If output 4 > 0.6
+      fd speed * (1 - speed-sensitivity) ; Move forward slower
+      set energy energy - 2
+      check-death
+    ]
+
+     let turn-difference turn-left-output - turn-right-output ; Calculate the difference between turns
+    if abs turn-difference > 0.2 [ ; If absolute value > 0.2
+      ifelse turn-difference > 0.1 [
+        rt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+      ] [
+        lt turn-difference * turn-sensitivity
+        set energy energy - 2
         check-death
       ]
-      set energy energy - 4
-      ; Uncomment line below if you want color to scale depending on how much energy left
-       ;set color scale-color orange energy 200 0
-      check-death
-      ifelse sugar-count?
-    [ set label energy ]
-    [set label "" ]
-      ]
-    ]
-end
-; PREY EAT SUGAR
-to eat-sugar-prey
-  ask preys [
-    if energy < maxEnergy [ ; If prey holds less sugar than maximum allowed
-    if pcolor = 47 [
-      set pcolor black
-        let sugar-consumed min (list [sugar] of patch-here (maxEnergy - energy)) ; Calculate how much sugar was consumed
-        set energy (energy + [sugar] of patch-here) ; Take sugar from patch and add it to prey
-        ask patch-here [
-          set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
-          set sugar-last-consumed ticks ; Update timer
-        ]
-    ifelse sugar-count?
-    [ set label energy ]
-    [ set label "" ]
-      ]
-    ]
-    if energy > maxEnergy [ set energy maxEnergy ] ; If the energy goes above maxEnergy, set it to maxEnergy
-  ]
-end
-; PREY REPRODUCTION
-to reproduce-prey
-  ask preys [
-  if energy > 89 and count preys < prey-carrying-capacity [  ; If collected sugar is above 89 and carrying capacity is not max
-    set energy int (energy / 2) ; Divide the energy between parent and offspring
-    set prey-birth-count (prey-birth-count + 1) ; Count how many are born
-    hatch int (1) [ rt random-float 360 fd 1 ] ; Hatch an offspring and move it forward by 1 step
-      ifelse sugar-count?
-    [ set label energy ]
-    [set label "" ]
     ]
   ]
 end
 
 ; MOVE PREDATOR
-to move-pred
-      let prey-target one-of preys in-cone vision 70
-  if prey-target != nobody [ ; If a prey is found within the vision cone
-  ifelse random 100 < 45 [
-    random-movement
-    ] [
-      fd 1 ; Move forward
+to move-predator
+  let outputs output-layer-predator ; Store all outputs
 
-      if pcolor = blue - 1.5 or pcolor = blue [ ; If it goes into water, dies
-        set energy 0
-        check-death
-      ]
+  let turn-left-output item 0 outputs
+  let turn-right-output item 1 outputs
+  let accelerate-output item 2 outputs
+  let decelerate-output item 3 outputs
+
+  let distance-to-prey calculate-distance one-of preys
+  let prey-target one-of preys in-radius vision
+
+  ; DEBUG START <----------
+  ; print outputs
+  ; DEBUG END <------------
+
+ ; Hunt prey
+  ifelse prey-target != nobody [
+    let location-prey towards prey-target  ; Angle to where prey is
+    fd speed * accelerate-output ; Move forward with increased speed
+    set energy energy - 2
+    check-death
+  ] [ ; If prey is not in vision - regular movement
+    if accelerate-output > decelerate-output [ ; If output 3 > output 4
+      fd speed * speed-sensitivity ; Move forward faster
       set energy energy - 2
       check-death
     ]
+    if decelerate-output > 0.6 [ ; If output 4 > 0.6
+      fd speed * (1 - speed-sensitivity) ; Move forward slower
+      set energy energy - 2
+      check-death
+    ]
+
+     let turn-difference turn-left-output - turn-right-output ; Calculate the difference between turns
+    if abs turn-difference > 0.2 [ ; If absolute value > 0.2
+      ifelse turn-difference > 0.1 [
+        rt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+      ] [
+        lt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+
+  set energy energy - 2
+  check-death
+      ]
+    ]
   ]
 end
-; KILL PREY
+
+;-----------------------------FEED/KILL---------------------------------
+; PREY EAT SUGAR
+to eat-sugar-prey
+  ask preys [
+    if energy < maxEnergy [ ; If prey holds less sugar than maximum allowed
+      if pcolor = 47 [
+        set pcolor black
+        let sugar-consumed min (list [sugar] of patch-here (maxEnergy - energy)) ; Calculate how much sugar was consumed
+        set energy (energy + [sugar] of patch-here) ; Take sugar from patch and add it to prey
+
+        ask patch-here [
+          set sugar sugar - sugar-consumed ; Subtract the consumed amount of sugar from patch
+          set sugar-last-consumed ticks ; Update timer
+        ]
+      ]
+    ]
+  if energy > maxEnergy [ set energy maxEnergy ] ; If the energy goes above maxEnergy, set it to maxEnergy
+  ]
+end
+
+; PREDATOR KILL PREY
 to kill-prey
-    ask predators [
-    let prey-target one-of preys-here
+ ask predators [
+    let prey-target one-of preys-here ; Find a prey on the same patch
     if prey-target != nobody [
       let prey-energy [energy] of prey-target ; Get the energy of the prey
-      ask prey-target [ die ] ; Kill the prey
+      ask prey-target [ die ] ; Kill prey
+      set prey-death-count (prey-death-count + 1)
+
       if energy < maxEnergy [
         set energy energy + prey-energy ; Collect energy from prey
       ]
@@ -356,45 +591,8 @@ to kill-prey
     if energy > maxEnergy [ set energy maxEnergy ]
   ]
 end
-; PREDATOR REPRODUCTION
-to reproduce-pred
-  if energy > 89 and count predators < predator-carrying-capacity [
- set energy int (energy / 2) ; Take half of the predators energy
- set predator-birth-count (predator-birth-count + 1)
- hatch int (1) [ ; Hatch an offspring and move it
-   rt random-float 360
-   fd 1
-    ]
-  ]
-end
 
-; RANDOM MOVEMENT
-to random-movement
-  rt random 50 ; Right turn
-  lt random 50 ; Left turn
-  fd 1 ; Forward
-  if pcolor = blue - 1.5 [
-        set energy 0
-        check-death
-      ]
-  set energy energy - 2 ; Consume 2 sugar after move
-
-  ; Uncomment line below if you want color to scale depending on how much energy left
-  ;ask preys [
-      ;set color scale-color orange energy 200 0 ; Set colour depending amount of energy a prey holds (brighter to darker)
-  ;]
-  ; Uncomment line below if you want color to scale depending on how much energy left
-  ;ask predators [
-    ;set color scale-color green energy 200 0
-  ;]
-
-      check-death
-      ifelse sugar-count?
-    [ set label energy ]
-    [ set label "" ]
-end
-
-; CHECK DEATH
+;-----------------------------CHECK-DEATH---------------------------------
 to check-death
   ask preys [
     if energy <= 0 [ ; If prey has no sugar left
@@ -409,6 +607,125 @@ to check-death
     ]
   ]
 end
+
+;-----------------------------GENETIC ALGORITHM---------------------------------
+; FITNESS CALCULATION
+to calculate-fitness [ current-tick ]
+  ; If tick is 0 (which will be at start), set fitness to only current energy
+  ifelse current-tick = 0 [
+    set fitness energy
+  ] [
+    let fitness-calc energy / current-tick ; Fitness = current energy / ticks (time survived)
+    set fitness fitness-calc ; Set fitness
+  ]
+end
+
+; TOURNAMENT SELECTION
+to-report selection [ turtle-pool ]
+  let parents [] ; Empty list
+
+  ; Repeat a number of times (slider settings)
+  ; Select randomly 2 candidates
+  repeat repeat-tournament-num [
+    let candidateA one-of turtle-pool
+    let candidateB one-of turtle-pool
+  ; If the candidates are the same prey, select a new candidateB
+    while [candidateA = candidateB] [
+      set candidateB one-of turtle-pool
+    ]
+  ; Compare fitness of both candidates and select the winner (one with higher fitness)
+    let winner ifelse-value [fitness] of candidateA > [fitness] of candidateB [candidateA] [candidateB]
+    set parents lput winner parents
+  ]
+
+  report parents
+end
+
+; UNIFORM CROSSOVER + MUTATION
+to-report crossover-mutate [parent1 parent2]
+  ; Getting parent chromosomes
+  let parent1-chromo [personal-chromo] of parent1
+  let parent2-chromo [personal-chromo] of parent2
+
+  ; Access weights
+  let access-weights-parent1 [weights] of parent1-chromo
+  let access-weights-parent2 [weights] of parent2-chromo
+
+  ; Empty child list for chromosomes
+  let child-chromo1 []
+  let child-chromo2 []
+
+
+
+  ; Uniform crossover
+  ;let p 0
+  ;foreach access-weights-parent1 [ gene ->
+    ;ifelse random-float 1 < 0.5 [ ; 50% chance to swap
+      ;set child-chromo1 lput gene child-chromo1
+      ;set child-chromo2 lput item p access-weights-parent2 child-chromo2
+    ;] [
+      ;set child-chromo1 lput item p access-weights-parent2 child-chromo1
+      ;set child-chromo2 lput gene child-chromo2
+    ;]
+    ;set p p + 1
+  ;]
+
+  ;report (list child-chromo1 child-chromo2)
+end
+
+
+
+to hatch-offspring [mut-chromo]
+  hatch 1 [
+    set energy random 60 + 20 ; Give random energy 60-80
+    set weights mut-chromo ; Give mutated chromosome
+    set birth-generation generation
+    set color red
+    rt random-float 360
+    fd 1
+  ]
+end
+
+; EVOLUTION <---------
+to evolution
+  ; Create old generation, do not include new offsprings
+  let old-generation-prey (turtle-set preys)
+  let old-generation-predator (turtle-set predators)
+
+  let prey-parents selection preys
+  let predator-parents selection predators
+
+  ; Crossover and mutation
+  ; PREY
+  foreach prey-parents [
+
+    ; Separate both parents into parent1 and parent2
+    let parent-pair prey-parents
+    let parent1 item 0 parent-pair
+    let parent2 item 1 parent-pair
+
+    let crossed-children crossover-mutate parent1 parent2
+
+  ]
+
+  ; PREDATOR
+  foreach predator-parents [
+
+    ; Separate both parents into parent1 and parent2
+    let parent-pair predator-parents
+    let parent1 item 0 parent-pair
+    let parent2 item 1 parent-pair
+
+    let crossed-children crossover-mutate parent1 parent2
+  ]
+
+  ask old-generation-prey [die]
+  ask old-generation-predator [die]
+end
+
+; TEST SIMULATION #1 - Full Simulation
+; Copyright 2024 Edgar Park.
+; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
 451
@@ -479,8 +796,8 @@ SLIDER
 initial-prey-number
 initial-prey-number
 0
-100
-50.0
+50
+10.0
 1
 1
 NIL
@@ -593,8 +910,8 @@ SLIDER
 prey-carrying-capacity
 prey-carrying-capacity
 0
-1000
-200.0
+100
+50.0
 1
 1
 NIL
@@ -688,8 +1005,8 @@ SLIDER
 initial-predator-number
 initial-predator-number
 0
-100
-50.0
+50
+10.0
 1
 1
 NIL
@@ -703,8 +1020,8 @@ SLIDER
 predator-carrying-capacity
 predator-carrying-capacity
 0
-1000
-200.0
+100
+50.0
 1
 1
 NIL
@@ -751,7 +1068,7 @@ CHOOSER
 selected-simulation
 selected-simulation
 "Fire/Heat" "Flood/Water"
-0
+1
 
 SLIDER
 0
@@ -762,7 +1079,7 @@ flooding-probability
 flooding-probability
 0
 100
-86.0
+50.0
 1
 1
 %
@@ -879,72 +1196,12 @@ NIL
 HORIZONTAL
 
 SLIDER
-311
-357
-440
-390
-efficiency-weight
-efficiency-weight
-0
-1
-0.4
-0.1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-337
-337
-413
-355
-Fitness settings
-10
-0.0
-1
-
-SLIDER
-311
-397
-441
-430
-distance-weight
-distance-weight
-0
-1
-0.4
-0.1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-204
-364
-305
-390
-Sugar to energy conversion-> Reward
-10
-0.0
-1
-
-TEXTBOX
-200
-400
-309
-426
-Distance to predator-> Penalty
-10
-0.0
-1
-
-SLIDER
-311
-453
-443
-486
-parents-num
-parents-num
+301
+452
+454
+485
+repeat-tournament-num
+repeat-tournament-num
 0
 100
 2.0
@@ -1048,7 +1305,7 @@ num-chromosomes
 num-chromosomes
 0
 500
-50.0
+40.0
 1
 1
 NIL
