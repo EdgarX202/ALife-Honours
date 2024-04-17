@@ -310,18 +310,19 @@ to go
 
   if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
         ;evolution ; Selection + Crossover + Mutation + Hatching
-        ;calculate-fitness
+        ask preys [ calculate-fitness ticks ]
+        ask predators [ calculate-fitness ticks ]
         set generation generation + 1
-
+  ]
   ask preys[
       feedforward-prey personal-chromo ; Passing individual chromosome to neural network
       move-prey
       eat-sugar-prey
       ]
-  ]
+
 
   ask predators [
-      feedforward-predator personal-chromo ; Passing individual chromosome to neural network
+      feedforward-predator personal-chromo
       move-predator
       kill-prey
   ]
@@ -369,7 +370,7 @@ to move-prey
   ]
 
   ; Close distance predator evasion
-  ifelse ddistance-to-predator < 15 [
+  ifelse distance-to-predator != nobody and distance-to-predator < 15 [
     ifelse turn-left-output > turn-right-output [ ; If output 0 > output 1
       rt turn-left-output * turn-sensitivity ; Right turn
       set energy energy - 2
@@ -513,21 +514,14 @@ to check-death
 end
 
 ;-----------------------------GENETIC ALGORITHM---------------------------------
-; FITNESS
-; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
-; Add 1 to ensure expression doesnt become undefined when 0
-; "efficiency-weight": Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
-; "distance-weight": Lower weight to indicate that prey should keep more distance from presdators
-to calculate-fitness
-  ask preys [
-    ; Get the chromosome
-    let chromo one-of chromosomes
-
-    let efficiency ifelse-value any? chromo [energy / sum chromo] [0] ; <--- CHANGE THIS TO JUST ENERGY??
-    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0] ; Minimum distance to any predator, 0 if no predators alive
-    let fitness-calc efficiency-weight * efficiency + distance-weight * (1 / (distance-from-predator + 1)) ; Calculate fitness
-
-    set fitness round fitness-calc ; Set fitness (round the number)
+; FITNESS CALCULATION
+to calculate-fitness [ current-tick ]
+  ; If tick is 0 (which will be ), set fitness to only current energy
+  ifelse current-tick = 0 [
+    set fitness energy
+  ] [
+    let fitness-calc energy / current-tick ; Fitness = current energy / ticks (time survived)
+    set fitness fitness-calc ; Set fitness
   ]
 end
 
@@ -984,7 +978,7 @@ gen-tick
 gen-tick
 0
 100
-10.0
+5.0
 1
 1
 NIL
@@ -1094,7 +1088,7 @@ turn-sensitivity
 turn-sensitivity
 0
 1
-0.2
+0.3
 0.1
 1
 NIL
@@ -1109,7 +1103,7 @@ speed-sensitivity
 speed-sensitivity
 0
 1
-0.5
+0.4
 0.1
 1
 NIL

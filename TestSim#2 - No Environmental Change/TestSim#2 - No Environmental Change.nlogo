@@ -11,11 +11,14 @@ globals [
   sugar-regrowth-delay
   ; GA
   generation
-  ; NN
-  input-layer
-  hidden-layer
-  output-layer
-  output-values
+  ; NN PREY
+  input-layer-prey
+  hidden-layer-prey
+  output-layer-prey
+  ; NN PREDATOR
+  input-layer-predator
+  hidden-layer-predator
+  output-layer-predator
 ]
 
 ;-----------------------------BREEDS---------------------------------
@@ -44,16 +47,40 @@ turtles-own [
 
 ;-----------------------------SETUP---------------------------------
 ; SETUP NEURAL NETWORK
-to setup-nn [input-size hidden-size output-size]
-  set input-layer input-size
-  set hidden-layer []   ; Start with an empty list
-  repeat hidden-size [
-    set hidden-layer lput 0 hidden-layer  ; Add 0 as initial values
+; PREY
+to setup-nn-prey [input-size hidden-size output-size]
+  set input-layer-prey input-size
+  set hidden-layer-prey []
+  set output-layer-prey []
+
+  ; Add 0 as initial values
+  repeat hidden-size [ set hidden-layer-prey lput 0 hidden-layer-prey ]
+  repeat output-size [ set output-layer-prey lput 0 output-layer-prey ]
+
+  ; Initialise weights for every chromosome
+  create-chromosomes num-chromosomes [
+    set weights []
+
+    ; Weights between input and hidden layers
+    repeat (input-size * hidden-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
+    ]
+
+    ; Weights between hidden and output layers
+    repeat (hidden-size * output-size) [
+      set weights lput (random-float 2 - 1) weights ; between -1 and 1
+    ]
   ]
-  set output-layer []
-  repeat output-size [
-    set output-layer lput 0 output-layer ; Add 0 as initial values
-  ]
+end
+; PREDATOR
+to setup-nn-predator [input-size hidden-size output-size]
+  set input-layer-predator input-size
+  set hidden-layer-predator []
+  set output-layer-predator []
+
+  ; Add 0 as initial values
+  repeat hidden-size [ set hidden-layer-predator lput 0 hidden-layer-predator ]
+  repeat output-size [ set output-layer-predator lput 0 output-layer-predator ]
 
   ; Initialise weights for every chromosome
   create-chromosomes num-chromosomes [
@@ -84,15 +111,15 @@ to-report calculate-distance [target]
 end
 
 ; PREY NN FEEDFORWARD
-to feedforward [chromo]
+to feedforward-prey [chromo]
   ask preys [
     ; Calculations for INPUT layer
-    ; Create new variable for storing single predator and single patch of sugar
-    let predatorX one-of predators
-    let food one-of patches with [sugar > 0]
+    ; Create new variable for storing single predator and single patch of sugar within preys vision
+    let predatorX one-of predators in-radius vision
+    let food one-of patches with [sugar > 0] in-radius vision
 
     ; Get distance to predator/sugar
-    let distance-to-predator calculate-distance predatorX
+    let distance-to-predator ifelse-value (predatorX != nobody) [calculate-distance predatorX] [0]
     let distance-to-food ifelse-value (food != nobody) [calculate-distance food] [0]
 
     ; Get the list of INPUTS
@@ -106,7 +133,7 @@ to feedforward [chromo]
     let total-weighted-sum 0
 
     ; Calculate HIDDEN layer
-    foreach hidden-layer [ h -> ; Loop through hidden layer
+    foreach hidden-layer-prey [ h -> ; Loop through hidden layer
         foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron (input-hidden)
          let weight item j access-weights ; Get the weight from j index
          set total-weighted-sum total-weighted-sum + (input-value * weight) ; Calculate weighted sum
@@ -114,7 +141,7 @@ to feedforward [chromo]
       ]
          set total-weighted-sum total-weighted-sum + bias ; Add bias
          let sigmoid-output sigmoid(total-weighted-sum) ; Apply sigmoid activation function
-         set hidden-layer replace-item i hidden-layer sigmoid-output ; Replace hidden layer items with calculated values
+         set hidden-layer-prey replace-item i hidden-layer-prey sigmoid-output ; Replace hidden layer items with calculated values
          set i i + 1 ; Increment outer loop
     ]
 
@@ -131,20 +158,83 @@ to feedforward [chromo]
     let total-weighted-sum-output 0
 
     ; Calculate OUTPUT layer
-    foreach output-layer [ o -> ; Loop through output layer
-     foreach hidden-layer [ hidden-value -> ; Calculate weighted sum for each neuron (hidden-output)
+    foreach output-layer-prey [ o -> ; Loop through output layer
+     foreach hidden-layer-prey [ hidden-value -> ; Calculate weighted sum for each neuron (hidden-output)
        let weight item l access-weights-output ; Get the weight from l index
        set total-weighted-sum-output total-weighted-sum-output + (hidden-value * weight) ; Calculate weighted sum
         set l l + 1 ; Increment inner loop
       ]
       set total-weighted-sum-output total-weighted-sum-output + bias ; Add bias
       let sigmoid-output-layer sigmoid(total-weighted-sum-output) ; Apply sigmoid activation function
-      set output-layer replace-item k output-layer sigmoid-output-layer ; Replace output layer items with calculated final values
+      set output-layer-prey replace-item k output-layer-prey sigmoid-output-layer ; Replace output layer items with calculated final values
       set k k + 1 ; Increment outer loop
     ]
 
     ; DEBUG START <-------
-    ; print output-layer
+    ; print output-layer-prey
+    ; DEBUG END <---------
+  ]
+end
+
+to feedforward-predator [chromo]
+  ask predators [
+    ; Calculations for INPUT layer
+    ; Create new variable for storing single prey within predators vision
+    let preyX one-of preys in-radius vision
+
+    ; Get distance to prey
+    let distance-to-prey ifelse-value (preyX != nobody) [calculate-distance preyX] [0]
+
+    ; Get the list of INPUTS
+    let total-inputs (list distance-to-prey energy speed)
+
+    ; Variables for the hidden layer
+    let access-weights [weights] of chromo ; Get the weights of a chromosome
+    let bias (random-float 2 - 1) ; Random bias -1 to 1
+    let i 0 ; Index for outer hidden-layer loop
+    let j 0 ; Index for inner total-inputs loop
+    let total-weighted-sum 0
+
+    ; Calculate HIDDEN layer
+    foreach hidden-layer-predator [ h -> ; Loop through hidden layer
+        foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron (input-hidden)
+         let weight item j access-weights ; Get the weight from j index
+         set total-weighted-sum total-weighted-sum + (input-value * weight) ; Calculate weighted sum
+         set j j + 1 ; Increment inner loop
+      ]
+         set total-weighted-sum total-weighted-sum + bias ; Add bias
+         let sigmoid-output sigmoid(total-weighted-sum) ; Apply sigmoid activation function
+         set hidden-layer-predator replace-item i hidden-layer-predator sigmoid-output ; Replace hidden layer items with calculated values
+         set i i + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print access-weights
+    ; print hidden-layer-predator
+    ; DEBUG END <---------
+
+
+    ; Variables for the output layer
+    let access-weights-output [weights] of chromo ; Get the weights of a chromosome
+    let k 0 ; Index for outer output-layer loop
+    let l 0 ; Index for inner hidden-inputs loop
+    let total-weighted-sum-output 0
+
+    ; Calculate OUTPUT layer
+    foreach output-layer-predator [ o -> ; Loop through output layer
+     foreach hidden-layer-predator [ hidden-value -> ; Calculate weighted sum for each neuron (hidden-output)
+       let weight item l access-weights-output ; Get the weight from l index
+       set total-weighted-sum-output total-weighted-sum-output + (hidden-value * weight) ; Calculate weighted sum
+        set l l + 1 ; Increment inner loop
+      ]
+      set total-weighted-sum-output total-weighted-sum-output + bias ; Add bias
+      let sigmoid-output-layer sigmoid(total-weighted-sum-output) ; Apply sigmoid activation function
+      set output-layer-predator replace-item k output-layer-predator sigmoid-output-layer ; Replace output layer items with calculated final values
+      set k k + 1 ; Increment outer loop
+    ]
+
+    ; DEBUG START <-------
+    ; print output-layer-predator
     ; DEBUG END <---------
   ]
 end
@@ -171,8 +261,9 @@ end
 to setup
   clear-all ; Clear the world
 
-  ; Setup neural network(4 Inputs, 4 Hidden neurons, 4 Outputs)
-    setup-nn 4 4 4
+  ; Setup neural network(Inputs, Hidden neurons, Outputs)
+    setup-nn-prey 4 4 4
+    setup-nn-predator 3 3 4
 
   ask patches [
     setup-sugar
@@ -201,7 +292,7 @@ to setup
     set color green
     set size 1.5
     set vision 50
-    set speed 1.2 ; 0.2 faster than prey
+    set speed 1
     set energy random 50 + 30 ; Starting amount of energy
     set birth-generation 1 ; During which generation a prey was born
     set fitness energy ; Starting fitness = starting energy level
@@ -219,19 +310,20 @@ to go
 
   if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
         ;evolution ; Selection + Crossover + Mutation + Hatching
-        ;calculate-fitness
+        ask preys [ calculate-fitness ticks ]
+        ask predators [ calculate-fitness ticks ]
         set generation generation + 1
-
+  ]
   ask preys[
-      feedforward personal-chromo ; Passing individual chromosome to neural network
+      feedforward-prey personal-chromo ; Passing individual chromosome to neural network
       move-prey
       eat-sugar-prey
       ]
-  ]
+
 
   ask predators [
-      ;feedforward personal-chromo ; Passing individual chromosome to neural network
-      move-pred
+      feedforward-predator personal-chromo
+      move-predator
       kill-prey
   ]
 
@@ -254,55 +346,118 @@ end
 ;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
+  let outputs output-layer-prey ; Store all outputs
 
-  ;let outputs output-values
-  ;let turn-left item 0 outputs
-  ;let turn-right item 1 outputs
-  ;let accelerate item 2 outputs
-  ;let decelerate item 3 outputs
+  let turn-left-output item 0 outputs
+  let turn-right-output item 1 outputs
+  let accelerate-output item 2 outputs
+  let decelerate-output item 3 outputs
 
-  ; Output 0
-  ;if turn-left > turn-right [
-   ; rt (turn-left * turn-sensitivity * 180)
-   ; set energy energy - 2
-   ; check-death]
-  ; Output 1
-  ;if turn-right > turn-left [
-   ; lt (turn-right * turn-sensitivity * 180)
-   ; set energy energy - 2
-   ; check-death]
-  ; Output 2
-  ;if accelerate > decelerate [
-   ; fd (accelerate * speed-sensitivity)
-   ; set energy energy - 2
-   ; check-death]
-  ; Output 3
-  ;if decelerate > accelerate [
-   ; let reverse-speed (-1 * decelerate * speed-sensitivity) ; Negative value for reverse movement
-   ; fd reverse-speed
-   ; set energy energy - 0.5 ; Less energy cost for deceleration
-   ; check-death]
+  let distance-to-predator calculate-distance one-of predators
+  let predator-target one-of predators in-radius vision
+
+  ; DEBUG START <----------
+  ; print outputs
+  ; DEBUG END <------------
+
+  ; Predator evasion
+  if predator-target != nobody [
+     let location-predator towards predator-target ; Angle where predator is
+     rt location-predator + 180 ; Turn away from the predator
+     fd speed * 1.5 ; Increase speed
+     set energy energy - 2
+     check-death
+  ]
+
+  ; Close distance predator evasion
+  ifelse distance-to-predator != nobody and distance-to-predator < 15 [
+    ifelse turn-left-output > turn-right-output [ ; If output 0 > output 1
+      rt turn-left-output * turn-sensitivity ; Right turn
+      set energy energy - 2
+      check-death
+    ] [
+      lt turn-right-output * turn-sensitivity ; Otherwise left turn
+      set energy energy - 2
+      check-death
+    ]
+  ] [ ; ELSE
+    ; If predator is not in vision - regular movement
+    if accelerate-output > decelerate-output [ ; If output 3 > output 4
+      fd speed * speed-sensitivity ; Move forward faster
+      set energy energy - 2
+      check-death
+    ]
+    if decelerate-output > 0.6 [ ; If output 4 > 0.6
+      fd speed * (1 - speed-sensitivity) ; Move forward slower
+      set energy energy - 2
+      check-death
+    ]
+
+     let turn-difference turn-left-output - turn-right-output ; Calculate the difference between turns
+    if abs turn-difference > 0.2 [ ; If absolute value > 0.2
+      ifelse turn-difference > 0.1 [
+        rt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+      ] [
+        lt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+      ]
+    ]
+  ]
 end
 
 ; MOVE PREDATOR
-to move-pred
-  let prey-target one-of preys in-cone vision 50 ; Find any prey within the vision cone
-  if prey-target != nobody [
-      face prey-target ; Face the prey and move towards it
-      fd 1
+to move-predator
+  let outputs output-layer-predator ; Store all outputs
+
+  let turn-left-output item 0 outputs
+  let turn-right-output item 1 outputs
+  let accelerate-output item 2 outputs
+  let decelerate-output item 3 outputs
+
+  let distance-to-prey calculate-distance one-of preys
+  let prey-target one-of preys in-radius vision
+
+  ; DEBUG START <----------
+  ; print outputs
+  ; DEBUG END <------------
+
+ ; Hunt prey
+  ifelse prey-target != nobody [
+    let location-prey towards prey-target  ; Angle to where prey is
+    fd speed * accelerate-output ; Move forward with increased speed
+    set energy energy - 2
+    check-death
+  ] [ ; If prey is not in vision - regular movement
+    if accelerate-output > decelerate-output [ ; If output 3 > output 4
+      fd speed * speed-sensitivity ; Move forward faster
+      set energy energy - 2
+      check-death
     ]
+    if decelerate-output > 0.6 [ ; If output 4 > 0.6
+      fd speed * (1 - speed-sensitivity) ; Move forward slower
+      set energy energy - 2
+      check-death
+    ]
+
+     let turn-difference turn-left-output - turn-right-output ; Calculate the difference between turns
+    if abs turn-difference > 0.2 [ ; If absolute value > 0.2
+      ifelse turn-difference > 0.1 [
+        rt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+      ] [
+        lt turn-difference * turn-sensitivity
+        set energy energy - 2
+        check-death
+
   set energy energy - 2
   check-death
-end
-
-; RANDOM MOVEMENT
-to random-movement
-  rt random 50 ; Right turn
-  lt random 50 ; Left turn
-  fd 1 ; Forward
-
-  set energy energy - 2
-  check-death
+      ]
+    ]
+  ]
 end
 
 ;-----------------------------FEED/KILL---------------------------------
@@ -359,21 +514,14 @@ to check-death
 end
 
 ;-----------------------------GENETIC ALGORITHM---------------------------------
-; FITNESS
-; (1 / (distance-from-predator + 1) - inverts value and adds 1. If distance increases, the value gets smaller
-; Add 1 to ensure expression doesnt become undefined when 0
-; "efficiency-weight": Higher weight to indicate that converting sugar to energy (efficiency) is a significant factor
-; "distance-weight": Lower weight to indicate that prey should keep more distance from presdators
-to calculate-fitness
-  ask preys [
-    ; Get the chromosome
-    let chromo one-of chromosomes
-
-    let efficiency ifelse-value any? chromo [energy / sum chromo] [0] ; <--- CHANGE THIS TO JUST ENERGY??
-    let distance-from-predator ifelse-value any? predators [min [distance myself] of predators] [0] ; Minimum distance to any predator, 0 if no predators alive
-    let fitness-calc efficiency-weight * efficiency + distance-weight * (1 / (distance-from-predator + 1)) ; Calculate fitness
-
-    set fitness round fitness-calc ; Set fitness (round the number)
+; FITNESS CALCULATION
+to calculate-fitness [ current-tick ]
+  ; If tick is 0 (which will be), set fitness to only current energy
+  ifelse current-tick = 0 [
+    set fitness energy
+  ] [
+    let fitness-calc energy / current-tick ; Fitness = current energy / ticks (time survived)
+    set fitness fitness-calc ; Set fitness
   ]
 end
 
@@ -830,7 +978,7 @@ gen-tick
 gen-tick
 0
 100
-15.0
+5.0
 1
 1
 NIL
@@ -940,7 +1088,7 @@ turn-sensitivity
 turn-sensitivity
 0
 1
-0.2
+0.3
 0.1
 1
 NIL
@@ -955,7 +1103,7 @@ speed-sensitivity
 speed-sensitivity
 0
 1
-0.5
+0.4
 0.1
 1
 NIL
