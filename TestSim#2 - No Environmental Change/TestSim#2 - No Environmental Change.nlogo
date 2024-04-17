@@ -21,7 +21,6 @@ globals [
 ;-----------------------------BREEDS---------------------------------
 breed [ predators predator ]
 breed [ preys prey ]
-breed [ neurons neuron ]
 breed [ chromosomes chromosome ]
 
 ;-----------------------------SHARED PROPERTIES---------------------------------
@@ -47,7 +46,7 @@ turtles-own [
 ; SETUP NEURAL NETWORK
 to setup-nn [input-size hidden-size output-size]
   set input-layer input-size
- set hidden-layer []  ; Start with an empty list
+  set hidden-layer []   ; Start with an empty list
   repeat hidden-size [
     set hidden-layer lput 0 hidden-layer  ; Add 0 as initial values
   ]
@@ -96,38 +95,33 @@ to feedforward [chromo]
     ; Get the list of INPUTS
     let total-inputs (list distance-to-predator distance-to-food energy speed)
 
-    ; DEBUG START <-----
-    ; print total-inputs
-    ; DEBUG END <-------
-
     ; Variables for the hidden layer
     let access-weights [weights] of chromo ; Get the weights of a chromosome
     let bias (random-float 2 - 1) ; Random bias -1 to 1
-    let current-weight-index 0 ; Tracking which weight we are calculating
-    let total-hidden-neurons length hidden-layer ; Get the number of hidden neurons
-    let i 0 ; Variable for counter
-    let current-hidden-neuron 0 ; Store calculated neuron value
+    let i 0 ; Index for outer hidden-layer loop
+    let j 0 ; Index for inner total-inputs loop
+    let total-weighted-sum 0
 
     ; Calculate HIDDEN layer
-    ask neurons [
-      foreach total-hidden-neurons [ ; Loop through neurons
-        let updated-neuron (item i access-weights * item i total-inputs) + bias ; Calculate weighted sum with bias
-
-        set current-hidden-neuron updated-neuron ; Store the calculation in a new variable
-        set i i + 1 ; Increment the counter
-        set weights item current-weight-index access-weights ; Retrieve the next weight from the list
-        set current-weight-index current-weight-index + 1 ; Increment index
-
-        ; Apply sigmoid activation function
-        set hidden-layer replace-item i hidden-layer sigmoid(current-hidden-neuron)
+    foreach hidden-layer [ h -> ; Loop through hidden layer
+        foreach total-inputs [ input-value -> ; Calculate weighted sum for each neuron
+         let weight item j access-weights ; Get the weight from j index
+         set total-weighted-sum total-weighted-sum + (input-value * weight) ; Calculate weighted sum
+         set j j + 1 ; Increment inner loop
       ]
+         set total-weighted-sum total-weighted-sum + bias ; Add bias
+         let sigmoid-output sigmoid(total-weighted-sum) ; Apply sigmoid activation function
+         set hidden-layer replace-item i hidden-layer sigmoid-output ; Replace hidden layer items with calculated values
+         set i i + 1 ; Increment outer loop
     ]
 
     ; DEBUG START <-------
-    ;  print access-weights ; Checking if weights are accessible - Works
-     print hidden-layer ; Currently all 0s :(
+    ; print access-weights
+    ; print hidden-layer
     ; DEBUG END <---------
-]
+
+    ; Calculate OUTPUT layer
+  ]
 end
 
 ; SIGMOID FUNCTION
@@ -197,20 +191,21 @@ end
 ;-----------------------------SIMULATION GO---------------------------------
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
-if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
+
+  if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
         ;evolution ; Selection + Crossover + Mutation + Hatching
         ;calculate-fitness
         set generation generation + 1
 
   ask preys[
       feedforward personal-chromo ; Passing individual chromosome to neural network
-
       move-prey
       eat-sugar-prey
       ]
   ]
 
   ask predators [
+      ;feedforward personal-chromo ; Passing individual chromosome to neural network
       move-pred
       kill-prey
   ]
@@ -234,8 +229,6 @@ end
 ;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
-  ; MAKE SURE THAT ACTIVATION FUNCTION DOESNT ACTIVATE ALL AT ONCE...
-  ; CREATE IT SO IT CHOOSES ONE FROM LEFT/RIGHT AND ONE FROM ACCELERATE/DECELERATE
 
   ;let outputs output-values
   ;let turn-left item 0 outputs
@@ -962,7 +955,7 @@ num-chromosomes
 num-chromosomes
 0
 500
-50.0
+100.0
 1
 1
 NIL
