@@ -516,7 +516,7 @@ end
 ;-----------------------------GENETIC ALGORITHM---------------------------------
 ; FITNESS CALCULATION
 to calculate-fitness [ current-tick ]
-  ; If tick is 0 (which will be), set fitness to only current energy
+  ; If tick is 0 (which will be at start), set fitness to only current energy
   ifelse current-tick = 0 [
     set fitness energy
   ] [
@@ -526,17 +526,17 @@ to calculate-fitness [ current-tick ]
 end
 
 ; TOURNAMENT SELECTION
-to-report selection
+to-report selection [ turtle-pool ]
   let parents [] ; Empty list
 
   ; Repeat a number of times (slider settings)
   ; Select randomly 2 candidates
-  repeat parents-num [
-    let candidateA one-of preys
-    let candidateB one-of preys
+  repeat repeat-tournament-num [
+    let candidateA one-of turtle-pool
+    let candidateB one-of turtle-pool
   ; If the candidates are the same prey, select a new candidateB
     while [candidateA = candidateB] [
-      set candidateB one-of preys
+      set candidateB one-of turtle-pool
     ]
   ; Compare fitness of both candidates and select the winner (one with higher fitness)
     let winner ifelse-value [fitness] of candidateA > [fitness] of candidateB [candidateA] [candidateB]
@@ -1055,15 +1055,15 @@ Sugar to energy conversion-> Reward
 1
 
 SLIDER
-316
-449
-443
-482
-parents-num
-parents-num
+307
+454
+456
+487
+repeat-tournament-num
+repeat-tournament-num
 0
 100
-2.0
+10.0
 1
 1
 NIL
