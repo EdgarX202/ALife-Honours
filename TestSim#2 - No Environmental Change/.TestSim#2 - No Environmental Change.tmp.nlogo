@@ -15,7 +15,6 @@ globals [
   input-layer
   hidden-layer
   output-layer
-  output-values
 ]
 
 ;-----------------------------BREEDS---------------------------------
@@ -87,9 +86,9 @@ end
 to feedforward [chromo]
   ask preys [
     ; Calculations for INPUT layer
-    ; Create new variable for storing single predator and single patch of sugar
-    let predatorX one-of predators
-    let food one-of patches with [sugar > 0]
+    ; Create new variable for storing single predator and single patch of sugar within preys vision
+    let predatorX one-of predators in-radius vision
+    let food one-of patches with [sugar > 0] in-radius vision
 
     ; Get distance to predator/sugar
     let distance-to-predator calculate-distance predatorX
@@ -231,8 +230,8 @@ to go
 
   ask predators [
       ;feedforward personal-chromo ; Passing individual chromosome to neural network
-      move-pred
-      kill-prey
+      ;move-pred
+      ;kill-prey
   ]
 
   update-patches
@@ -254,34 +253,56 @@ end
 ;-----------------------------MOVEMENT---------------------------------
 ; MOVE PREY
 to move-prey
+  let outputs output-layer ; Store all outputs
 
-  ;let outputs output-values
-  ;let turn-left item 0 outputs
-  ;let turn-right item 1 outputs
-  ;let accelerate item 2 outputs
-  ;let decelerate item 3 outputs
+  let turn-left-output item 0 outputs
+  let turn-right-output item 1 outputs
+  let accelerate-output item 2 outputs
+  let decelerate-output item 3 outputs
 
-  ; Output 0
-  ;if turn-left > turn-right [
-   ; rt (turn-left * turn-sensitivity * 180)
-   ; set energy energy - 2
-   ; check-death]
-  ; Output 1
-  ;if turn-right > turn-left [
-   ; lt (turn-right * turn-sensitivity * 180)
-   ; set energy energy - 2
-   ; check-death]
-  ; Output 2
-  ;if accelerate > decelerate [
-   ; fd (accelerate * speed-sensitivity)
-   ; set energy energy - 2
-   ; check-death]
-  ; Output 3
-  ;if decelerate > accelerate [
-   ; let reverse-speed (-1 * decelerate * speed-sensitivity) ; Negative value for reverse movement
-   ; fd reverse-speed
-   ; set energy energy - 0.5 ; Less energy cost for deceleration
-   ; check-death]
+  let distance-to-predator calculate-distance one-of predators
+  let predator-target one-of predators in-radius vision
+  ; DEBUG START <----------
+  ; print outputs
+  ; DEBUG END <------------
+
+  ; Predator evasion
+  if predator-target != nobody [
+     let location-predator towards predator-target ; Look where the predator is within preys vision
+     rt location-predator + 180 ; Turn away from the predator
+     fd speed * 1.5 ; Increase speed
+     set energy energy - 2
+  ]
+
+  ; Close distance predator evasion
+  ifelse distance-to-predator < 15 [
+    ifelse turn-left-output > turn-right-output [ ; If output 0 > output 1
+      rt turn-left-output * turn-sensitivity ; Make a right turn
+      set energy energy - 2
+    ] [
+      lt turn-right-output * turn-sensitivity ; Otherwise make a left turn
+      set energy energy - 2
+    ]
+  ] [
+    ; If predator is not in vision
+    if accelerate-output > decelerate-output [ ; If output 3 > output 4
+      fd speed * speed-sensitivity ; Move forward faster
+      set energy energy - 2
+    ]
+    if decelerate-output > 0.6 [ ; If output 4 > 0.6
+      fd speed * (1 - speed-sensitivity) ; Move forward slower
+     set energy energy - 2
+    ]
+
+     let turn-difference turn-left-output - turn-right-output ; Calculate the difference between turns
+    if abs turn-difference > 0.2 [ ; If absolute value > 0.2
+      ifelse turn-difference > 0.2 [
+        rt turn-difference * turn-sensitivity
+     set energy energy - 2
+      ]
+      [ lt turn-difference * turn-sensitivity ]
+    ]
+  ]
 end
 
 ; MOVE PREDATOR
