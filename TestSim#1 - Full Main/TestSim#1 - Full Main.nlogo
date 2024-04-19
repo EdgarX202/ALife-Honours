@@ -344,7 +344,7 @@ to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
    if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
-        ;evolution ; Selection + Crossover + Mutation + Hatching
+        evolution ; Selection + Crossover + Mutation + Hatching
         ask preys [ calculate-fitness ticks ]
         ask predators [ calculate-fitness ticks ]
         set generation generation + 1
@@ -617,7 +617,7 @@ end
 to-report selection [ turtle-pool ]
   let parents [] ; Empty list
 
-  ; Repeat a number of times (slider settings)
+  ; Repeat - how many tournaments (slider settings)
   ; Select randomly 2 candidates
   repeat repeat-tournament-num [
     let candidateA one-of turtle-pool
@@ -634,7 +634,7 @@ to-report selection [ turtle-pool ]
   report parents
 end
 
-; UNIFORM CROSSOVER + MUTATION
+; CROSSOVER + MUTATION
 to-report crossover-mutate [parent1 parent2]
   ; Getting parent chromosomes
   let parent1-chromo [personal-chromo] of parent1
@@ -644,34 +644,23 @@ to-report crossover-mutate [parent1 parent2]
   let access-weights-parent1 [weights] of parent1-chromo
   let access-weights-parent2 [weights] of parent2-chromo
 
-  ; Empty child list for chromosomes
   let child-chromo1 []
   let child-chromo2 []
 
+  ; One-point crossover
+  let cut-point random length access-weights-parent1
 
-
-  ; Uniform crossover
-  ;let p 0
-  ;foreach access-weights-parent1 [ gene ->
-    ;ifelse random-float 1 < 0.5 [ ; 50% chance to swap
-      ;set child-chromo1 lput gene child-chromo1
-      ;set child-chromo2 lput item p access-weights-parent2 child-chromo2
-    ;] [
-      ;set child-chromo1 lput item p access-weights-parent2 child-chromo1
-      ;set child-chromo2 lput gene child-chromo2
-    ;]
-    ;set p p + 1
-  ;]
-
-  ;report (list child-chromo1 child-chromo2)
+  report (list child-chromo1 child-chromo2)
 end
 
 
 
 to hatch-offspring [mut-chromo]
+  ; Kill current generation
+  ask turtles [die]
+
   hatch 1 [
     set energy random 60 + 20 ; Give random energy 60-80
-    set weights mut-chromo ; Give mutated chromosome
     set birth-generation generation
     set color red
     rt random-float 360
@@ -681,39 +670,16 @@ end
 
 ; EVOLUTION <---------
 to evolution
-  ; Create old generation, do not include new offsprings
-  let old-generation-prey (turtle-set preys)
-  let old-generation-predator (turtle-set predators)
+  ; Select parents
+  ;let prey-parents selection preys
+  ;let predator-parents selection predators
 
-  let prey-parents selection preys
-  let predator-parents selection predators
+  ; Crossover + Mutation
 
-  ; Crossover and mutation
-  ; PREY
-  foreach prey-parents [
 
-    ; Separate both parents into parent1 and parent2
-    let parent-pair prey-parents
-    let parent1 item 0 parent-pair
-    let parent2 item 1 parent-pair
+  ; Hatching
 
-    let crossed-children crossover-mutate parent1 parent2
 
-  ]
-
-  ; PREDATOR
-  foreach predator-parents [
-
-    ; Separate both parents into parent1 and parent2
-    let parent-pair predator-parents
-    let parent1 item 0 parent-pair
-    let parent2 item 1 parent-pair
-
-    let crossed-children crossover-mutate parent1 parent2
-  ]
-
-  ask old-generation-prey [die]
-  ask old-generation-predator [die]
 end
 
 ; TEST SIMULATION #1 - Full Simulation
@@ -790,7 +756,7 @@ initial-prey-number
 initial-prey-number
 0
 50
-5.0
+8.0
 1
 1
 NIL
@@ -1061,7 +1027,7 @@ CHOOSER
 selected-simulation
 selected-simulation
 "Fire/Heat" "Flood/Water"
-0
+1
 
 SLIDER
 0
@@ -1072,7 +1038,7 @@ flooding-probability
 flooding-probability
 0
 100
-50.0
+55.0
 1
 1
 %
