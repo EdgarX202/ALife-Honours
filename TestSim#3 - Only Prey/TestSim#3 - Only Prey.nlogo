@@ -1,4 +1,4 @@
-;-----------------------------GLOBAL VARIABLES---------------------------------
+ ;-----------------------------GLOBAL VARIABLES---------------------------------
 globals [
   ; Prey
   prey-death-count
@@ -34,8 +34,8 @@ turtles-own [
   energy
   speed
   birth-generation
-  fitness
   personal-chromo
+  fitness
 ]
 
 ;-----------------------------SETUP---------------------------------
@@ -58,6 +58,7 @@ to setup-nn-prey [input-size hidden-size output-size]
     repeat (input-size * hidden-size) [
       set weights lput (random-float 2 - 1) weights ; between -1 and 1
     ]
+
     ; Weights between hidden and output layers
     repeat (hidden-size * output-size) [
       set weights lput (random-float 2 - 1) weights ; between -1 and 1
@@ -81,14 +82,16 @@ end
 to feedforward-prey [chromo]
   ask preys [
     ; Calculations for INPUT layer
-    ; Create new variable for storing single patch of sugar within preys vision
+    ; Create new variable for storing a single patch of sugar within preys vision
     let food one-of patches with [sugar > 0] in-radius vision
+    let water-hazard one-of patches with [ pcolor = blue - 1.5 ] in-radius vision
 
-    ; Get distance to sugar
+    ; Get distance to water/sugar
     let distance-to-food ifelse-value (food != nobody) [calculate-distance food] [0]
+    let distance-to-water ifelse-value (water-hazard != nobody) [calculate-distance water-hazard] [0]
 
     ; Get the list of INPUTS
-    let total-inputs (list distance-to-food energy speed)
+    let total-inputs (list distance-to-food distance-to-water energy speed)
 
     ; Variables for the hidden layer
     let access-weights [weights] of chromo ; Get the weights of a chromosome
@@ -114,6 +117,7 @@ to feedforward-prey [chromo]
     ; print access-weights
     ; print hidden-layer
     ; DEBUG END <---------
+
 
     ; Variables for the output layer
     let access-weights-output [weights] of chromo ; Get the weights of a chromosome
@@ -151,19 +155,19 @@ end
 ; SETUP SUGAR
 to setup-sugar
   if (random 100) < sugar-density [ ; Random sugar distribution
-    set pcolor 47 ; Color of a patch (yellow-ish)
-    set sugar int (random 50) ; Starting amount of sugar
-    set grow-back random 50 ; Random amount of sugar for re-growth
-    set sugar-last-consumed 0 ; Default time when sugar was last consumed
+    set pcolor 47
+    set sugar int (random 50 + 1) ; Starting amount of sugar
+    set grow-back random 50 + 1 ; Random amount of sugar for re-growth
+    set sugar-last-consumed 0
     ]
 end
 
-; -SETUP BUTTON-
+; SETUP BUTTON
 to setup
-  clear-all ; Clear the world
+  clear-all
 
   ; Setup neural network(Inputs, Hidden neurons, Outputs)
-    setup-nn-prey 3 3 4
+    setup-nn-prey 4 4 4
 
   ; Fire/Heat patches setup
   if selected-simulation = "Fire/Heat" [
@@ -176,7 +180,6 @@ to setup
    set sugar 0 ; Starting black patches have 0 sugar = unusable
     ]
   ]
-
   ; Water/Flood patches setup
   if selected-simulation = "Flood/Water"[
     ask patches [
@@ -189,14 +192,7 @@ to setup
     ]
   ]
 
-  ask patches [
-    setup-sugar
-  ]
-  ask patches with [ pcolor = black ] [
-   set sugar 0 ; Starting black patches have 0 sugar = unusable
-    ]
-
-  ; Prey setup
+   ; Prey setup
   set-default-shape preys "circle" ; Shape of a prey
   create-preys initial-prey-number [ ; Set initial number of preys
     set color orange
@@ -214,7 +210,7 @@ to setup
   reset-ticks
 end
 
-;-----------------------------WATER PRESSURE---------------------------------
+; WATER PRESSURE
 to calculate-water-pressure
   ask patches [
     set water-pressure 1.2 ; Initialize pressure
@@ -231,11 +227,12 @@ end
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
 
-  if ticks mod gen-tick = 0 and generation > 1 and generation < max-generations [
-        ;evolution ; Selection + Crossover + Mutation + Hatching
+   if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
+        evolution ; Selection + Crossover + Mutation + Hatching
         ask preys [ calculate-fitness ticks ]
         set generation generation + 1
   ]
+
   ask preys[
       feedforward-prey personal-chromo ; Passing individual chromosome to neural network
       move-prey
@@ -279,16 +276,16 @@ to go
   if selected-simulation = "Flood/Water"[
     calculate-water-pressure
    ask patches with [ pcolor = blue ] [
+      ask preys-here [ ; Kill preys if they appear on a blue patch
+        set energy 0
+        check-death
+         ]
     ask neighbors4 with [ pcolor = 47 ] [ ; Find neighbours with sugar around the blue patch
       let probability flooding-probability * water-pressure; Flood/Water spread probability
       let direction towards myself ; Direction from sugar towards flood/water(myself)
 
       if random 100 < probability [
         set pcolor blue ; Spread flood/water
-
-          ask preys-here [ ; Kill preys if they appear on a blue patch
-        set energy 0
-         ]
       ]
     ]
     set pcolor blue - 1.5 ; New color for patches after flood
@@ -306,7 +303,7 @@ to update-patches
 end
 
 to update-patch
-   if selected-simulation = "Fire/Heat"[
+  if selected-simulation = "Fire/Heat"[
   ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a red patch
   if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 8 and (pcolor != red - 3) [
     set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
@@ -333,6 +330,8 @@ to move-prey
   let accelerate-output item 2 outputs
   let decelerate-output item 3 outputs
 
+  let water-hazard one-of patches with [ pcolor = blue - 1.5 ] in-radius vision
+
   ; DEBUG START <----------
   ; print outputs
   ; DEBUG END <------------
@@ -347,33 +346,31 @@ to move-prey
       check-death
     ]
 
-    if accelerate-output > decelerate-output [ ; If output 3 > output 4
-      fd speed * speed-sensitivity ; Move forward faster
-      set energy energy - 2
-      check-death
+    ; Outputs 0 and 1
+  ifelse turn-left-output < turn-right-output [
+    rt 20 * turn-sensitivity
+    set energy energy - 2
+    check-death
+  ] [
+    lt 20 * turn-sensitivity
+    set energy energy - 2
+    check-death
+  ]
+
+  ; Outputs 2 and 3
+  ifelse accelerate-output > decelerate-output [
+    fd speed * speed-sensitivity
+    set energy energy - 2
+    check-death
+  ] [
+    fd speed * (1 - speed-sensitivity)
+    set energy energy - 2
+    check-death
     ]
 
-    if decelerate-output > 0.6 [ ; If output 4 > 0.6
-      fd speed * (1 - speed-sensitivity) ; Move forward slower
-      set energy energy - 2
-      check-death
-    ]
-
-     let turn-difference turn-left-output - turn-right-output ; Calculate the difference between turns
-    if abs turn-difference > 0.2 [ ; If absolute value > 0.2
-      ifelse turn-difference > 0.1 [
-        rt turn-difference * turn-sensitivity
-        set energy energy - 2
-        check-death
-      ] [
-        lt turn-difference * turn-sensitivity
-        set energy energy - 2
-        check-death
-      ]
-    ]
 end
 
-;-----------------------------FEED---------------------------------
+;-----------------------------FEED/KILL---------------------------------
 ; PREY EAT SUGAR
 to eat-sugar-prey
   ask preys [
@@ -396,9 +393,9 @@ end
 ;-----------------------------CHECK-DEATH---------------------------------
 to check-death
   ask preys [
-    if energy <= 0 [
-      set prey-death-count (prey-death-count + 1)
-      die
+    if energy <= 0 [ ; If prey has no sugar left
+   set prey-death-count (prey-death-count + 1) ; Increase death count
+   die ; Remove the turtle
     ]
   ]
 end
@@ -419,12 +416,12 @@ end
 to-report selection [ turtle-pool ]
   let parents [] ; Empty list
 
-  ; Repeat a number of times (slider settings)
+  ; Repeat - how many tournaments (slider settings)
   ; Select randomly 2 candidates
   repeat repeat-tournament-num [
     let candidateA one-of turtle-pool
     let candidateB one-of turtle-pool
-  ; If the candidate is the same turtle, select a new candidateB
+  ; If the candidates are the same prey, select a new candidateB
     while [candidateA = candidateB] [
       set candidateB one-of turtle-pool
     ]
@@ -436,8 +433,8 @@ to-report selection [ turtle-pool ]
   report parents
 end
 
-; UNIFORM CROSSOVER
-to-report crossover [parent1 parent2]
+; CROSSOVER + MUTATION
+to-report crossover-mutate [parent1 parent2]
   ; Getting parent chromosomes
   let parent1-chromo [personal-chromo] of parent1
   let parent2-chromo [personal-chromo] of parent2
@@ -446,56 +443,42 @@ to-report crossover [parent1 parent2]
   let access-weights-parent1 [weights] of parent1-chromo
   let access-weights-parent2 [weights] of parent2-chromo
 
-  ; Empty child list for chromosomes
   let child-chromo1 []
   let child-chromo2 []
 
-  ; Uniform crossover
-  let p 0
-  foreach access-weights-parent1 [ gene ->
-    ifelse random-float 1 < 0.5 [ ; 50% chance to swap
-      set child-chromo1 lput gene child-chromo1
-      set child-chromo2 lput item p access-weights-parent2 child-chromo2
-    ] [
-      set child-chromo1 lput item p access-weights-parent2 child-chromo1
-      set child-chromo2 lput gene child-chromo2
-    ]
-    set p p + 1
-  ]
+  ; One-point crossover
+  let cut-point random length access-weights-parent1
 
   report (list child-chromo1 child-chromo2)
 end
 
-; MUTATION
-to mutate
 
-end
 
-; HATCHING
 to hatch-offspring [mut-chromo]
+  ; Kill current generation
+  ask turtles [die]
 
+  hatch 1 [
+    set energy random 60 + 20 ; Give random energy 60-80
+    set birth-generation generation
+    set color red
+    rt random-float 360
+    fd 1
+  ]
 end
 
 ; EVOLUTION <---------
 to evolution
-  ; Create old generation, do not include new offsprings
-  let old-generation-prey (turtle-set preys)
+  ; Select parents
+  ;let prey-parents selection preys
+  ;let predator-parents selection predators
 
-  let prey-parents selection preys
+  ; Crossover + Mutation
 
-  ; Crossover and mutation
-  ; PREY
-  foreach prey-parents [
 
-    ; Separate both parents into parent1 and parent2
-    let parent-pair prey-parents
-    let parent1 item 0 parent-pair
-    let parent2 item 1 parent-pair
+  ; Hatching
 
-    let crossed-children crossover parent1 parent2
-  ]
 
-  ask old-generation-prey [die]
 end
 
 ; TEST SIMULATION #3 - ONLY PREY
@@ -736,9 +719,9 @@ HORIZONTAL
 
 SLIDER
 0
-382
+306
 156
-415
+339
 fire-spread-probability
 fire-spread-probability
 0
@@ -781,9 +764,9 @@ selected-simulation
 
 SLIDER
 0
-343
+267
 155
-376
+300
 flooding-probability
 flooding-probability
 0
@@ -796,9 +779,9 @@ HORIZONTAL
 
 TEXTBOX
 7
-323
+247
 163
-341
+265
 Environmental Change settings
 10
 0.0
@@ -806,9 +789,9 @@ Environmental Change settings
 
 SLIDER
 20
-455
+379
 136
-488
+412
 south-wind
 south-wind
 -25
@@ -821,9 +804,9 @@ HORIZONTAL
 
 SLIDER
 20
-419
+343
 136
-452
+376
 west-wind
 west-wind
 -25
@@ -875,10 +858,10 @@ Genetic Algorith settings
 1
 
 SLIDER
-598
-458
-690
-491
+606
+455
+698
+488
 gen-tick
 gen-tick
 0
@@ -890,10 +873,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-695
-452
-816
-497
+703
+449
+824
+494
 Current Generation
 generation
 17
@@ -915,106 +898,31 @@ max-generations
 NIL
 HORIZONTAL
 
-SLIDER
-314
-339
-445
-372
-efficiency-weight
-efficiency-weight
-0
-1
-0.4
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-314
-377
-446
-410
-distance-weight
-distance-weight
-0
-1
-0.4
-0.1
-1
-NIL
-HORIZONTAL
-
 TEXTBOX
-474
-461
-598
-487
+482
+458
+606
+484
 After how many ticks new generation occurs->
 10
 0.0
 1
 
-SLIDER
-315
-279
-446
-312
-mutation-magnitude
-mutation-magnitude
-0
-1
-0.2
-0.01
-1
-NIL
-HORIZONTAL
-
 TEXTBOX
-344
-319
-426
-337
-Fitness settings
-10
-0.0
-1
-
-TEXTBOX
-206
-345
-317
-371
-Sugar to energy conversion-> Reward
-10
-0.0
-1
-
-TEXTBOX
-201
-381
-322
-406
-Distance to predator-> Penalty
-10
-0.0
-1
-
-TEXTBOX
-354
-431
-398
-449
+284
+289
+328
+307
 Selection
 10
 0.0
 1
 
 SLIDER
-308
-451
-458
-484
+234
+307
+384
+340
 repeat-tournament-num
 repeat-tournament-num
 0

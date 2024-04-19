@@ -256,27 +256,43 @@ end
 ; SETUP SUGAR
 to setup-sugar
   if (random 100) < sugar-density [ ; Random sugar distribution
-    set pcolor 47 ; Color of a patch (yellow-ish)
-    set sugar int (random 50) ; Starting amount of sugar
-    set grow-back random 50 ; Random amount of sugar for re-growth
-    set sugar-last-consumed 0 ; Default time when sugar was last consumed
+    set pcolor 47
+    set sugar int (random 50 + 1) ; Starting amount of sugar
+    set grow-back random 50 + 1 ; Random amount of sugar for re-growth
+    set sugar-last-consumed 0
     ]
 end
 
-; -SETUP BUTTON-
+; SETUP BUTTON
 to setup
-  clear-all ; Clear the world
+  clear-all
 
   ; Setup neural network(Inputs, Hidden neurons, Outputs)
-    setup-nn-prey 4 4 4
-    setup-nn-predator 3 3 4
+    setup-nn-prey 5 5 4
+    setup-nn-predator 4 4 4
 
+  ; Fire/Heat patches setup
+  if selected-simulation = "Fire/Heat" [
   ask patches [
     setup-sugar
+    if pxcor = min-pxcor
+    [ set pcolor red ] ; Make left edge red, to simulate heat/fire
   ]
   ask patches with [ pcolor = black ] [
    set sugar 0 ; Starting black patches have 0 sugar = unusable
     ]
+  ]
+  ; Water/Flood patches setup
+  if selected-simulation = "Flood/Water"[
+    ask patches [
+    setup-sugar
+    if pxcor = min-pxcor
+    [ set pcolor blue ] ; Make left edge blue, to simulate flood starting point
+  ]
+  ask patches with [ pcolor = black ] [
+   set sugar 0 ; Starting black patches have 0 sugar = unusable
+    ]
+  ]
 
    ; Prey setup
   set-default-shape preys "circle" ; Shape of a prey
@@ -310,6 +326,19 @@ to setup
   reset-ticks
 end
 
+; WATER PRESSURE
+to calculate-water-pressure
+  ask patches [
+    set water-pressure 1.2 ; Initialize pressure
+    ask neighbors4 [
+      if pcolor = blue [
+        ; Add pressure from neighboring flooded patches
+        set water-pressure water-pressure
+      ]
+    ]
+  ]
+end
+
 ;-----------------------------SIMULATION GO---------------------------------
 to go
   if not any? turtles [ stop ] ; Stop the simulation if no turtles are alive
@@ -333,6 +362,64 @@ to go
       kill-prey
   ]
 
+  ; If fire/heat simulation selected
+  if selected-simulation = "Fire/Heat"[
+   ask patches with [ pcolor = red ] [
+    ask neighbors4 with [ pcolor = 47 ] [ ; Find neighbours with sugar around the red patch
+      let probability fire-spread-probability ; Fire/Heat spread probability
+      let direction towards myself ; Direction from sugar towards fire/heat(myself)
+
+      ; Create a slider if you want to adjust wind directions, fire will spread in different ways
+      ; If fire is on north side, south wind delays the fire spread and reduce the probability of spread
+      if direction = 0 [
+        set probability probability - south-wind
+      ]
+      ; If fire is on east side, west wind delays the fire spread and reduce the probability of spread
+      if direction = 90 [
+        set probability probability - west-wind
+      ]
+      ; If fire is on south side, south wind aids the fire spread and increase the probability of spread
+      if direction = 180 [
+        set probability probability + south-wind
+      ]
+      ; If fire is on west side, west wind aids the fire spread and increase the probability of spread
+      if direction = 270 [
+        set probability probability + west-wind
+      ]
+      if random 100 < probability [
+        set pcolor red ; Spread heat/fire
+      ]
+    ]
+    set pcolor red - 3 ; New color for patches after fire
+    set sugar 0 ; Sugar patch burnt
+    ]
+  ]
+
+  ; If flood/water simulation selected
+  if selected-simulation = "Flood/Water"[
+    calculate-water-pressure
+   ask patches with [ pcolor = blue ] [
+      ask preys-here [ ; Kill preys if they appear on a blue patch
+        set energy 0
+        check-death
+         ]
+      ask predators-here [ ; Kill predators if they appear on a blue patch
+        set energy 0
+        check-death
+         ]
+    ask neighbors4 with [ pcolor = 47 ] [ ; Find neighbours with sugar around the blue patch
+      let probability flooding-probability * water-pressure; Flood/Water spread probability
+      let direction towards myself ; Direction from sugar towards flood/water(myself)
+
+      if random 100 < probability [
+        set pcolor blue ; Spread flood/water
+      ]
+    ]
+    set pcolor blue - 1.5 ; New color for patches after flood
+    set sugar 0 ; Flooded patch looses all sugar
+    ]
+  ]
+
   update-patches
   tick ; Increase the tick counter by 1 each time
 end
@@ -343,9 +430,20 @@ to update-patches
 end
 
 to update-patch
-  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 8 [
+  if selected-simulation = "Fire/Heat"[
+  ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a red patch
+  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 8 and (pcolor != red - 3) [
     set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
-    set pcolor 47
+    set pcolor 47;
+    ]
+  ]
+
+  if selected-simulation = "Flood/Water"[
+    ; Grow patch if sugar is < 21 and > 0, every 5 ticks after 10 ticks if its not a blue patch
+  if sugar < 21 and sugar > 0 and ticks mod 5 = 0 and ticks >= sugar-last-consumed + 8 and (pcolor != blue - 1.5) [
+    set sugar min (list 100 (sugar + grow-back)) ; Re-grow sugar patch
+    set pcolor 47;
+    ]
   ]
 end
 
@@ -584,7 +682,7 @@ to evolution
 
 end
 
-; TEST SIMULATION #2 - No Environmental Change
+; TEST SIMULATION #1 - Full Simulation
 ; Copyright 2024 Edgar Park.
 ; See Info tab for full copyright and license.
 @#$#@#$#@
@@ -617,9 +715,9 @@ ticks
 
 BUTTON
 42
-100
+155
 110
-134
+189
 NIL
 go
 T
@@ -634,9 +732,9 @@ NIL
 
 BUTTON
 39
-137
+192
 114
-173
+228
 go-once
 go
 NIL
@@ -650,15 +748,15 @@ NIL
 0
 
 SLIDER
-176
-31
-308
-64
+160
+38
+292
+71
 initial-prey-number
 initial-prey-number
 0
-100
-10.0
+50
+8.0
 1
 1
 NIL
@@ -699,11 +797,11 @@ count preys
 11
 
 BUTTON
-20
-32
-134
-66
-Setup
+19
+93
+133
+127
+Setup Sim
 setup\n
 NIL
 1
@@ -749,10 +847,10 @@ prey-birth-count
 11
 
 SLIDER
-328
-106
-436
-139
+317
+113
+425
+146
 maxEnergy
 maxEnergy
 0
@@ -764,47 +862,12 @@ NIL
 HORIZONTAL
 
 SLIDER
-317
-32
+299
+39
 447
-65
+72
 prey-carrying-capacity
 prey-carrying-capacity
-0
-200
-50.0
-1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-33
-79
-134
-97
-Start Simulation
-13
-0.0
-1
-
-TEXTBOX
-290
-11
-341
-29
-Settings
-13
-0.0
-1
-
-SLIDER
-191
-106
-296
-139
-sugar-density
-sugar-density
 0
 100
 50.0
@@ -813,12 +876,72 @@ sugar-density
 NIL
 HORIZONTAL
 
+TEXTBOX
+27
+10
+130
+28
+Simulation Setup
+13
+0.0
+1
+
+TEXTBOX
+33
+134
+134
+152
+Start Simulation
+13
+0.0
+1
+
+TEXTBOX
+275
+10
+326
+28
+Settings
+13
+0.0
+1
+
+SLIDER
+171
+113
+281
+146
+sugar-density
+sugar-density
+0
+100
+75.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+0
+371
+147
+404
+fire-spread-probability
+fire-spread-probability
+0
+100
+70.0
+1
+1
+%
+HORIZONTAL
+
 PLOT
 892
 310
 1285
 446
-Sugar Stats
+Sugar/Fire/Flood Stats
 Ticks
 Total Patches
 0.0
@@ -830,31 +953,33 @@ true
 "" ""
 PENS
 "Sugar" 1.0 0 -1184463 true "" "plot count patches with [pcolor = 47]"
+"Flood/Water" 1.0 0 -13345367 true "" "plot count patches with [pcolor = blue - 1.5]"
+"Fire/Heat" 1.0 0 -5298144 true "" "plot count patches with [pcolor = red - 3]"
 
 SLIDER
-175
-69
-309
-102
+159
+76
+293
+109
 initial-predator-number
 initial-predator-number
 0
-100
-9.0
+50
+5.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-317
-69
+299
+76
 448
-102
+109
 predator-carrying-capacity
 predator-carrying-capacity
 0
-200
+100
 50.0
 1
 1
@@ -894,11 +1019,86 @@ predator-birth-count
 1
 11
 
+CHOOSER
+9
+38
+147
+83
+selected-simulation
+selected-simulation
+"Fire/Heat" "Flood/Water"
+1
+
 SLIDER
-318
-171
+0
+333
+147
+366
+flooding-probability
+flooding-probability
+0
+100
+55.0
+1
+1
+%
+HORIZONTAL
+
+TEXTBOX
+3
+313
+159
+331
+Environmental Change settings
+10
+0.0
+1
+
+SLIDER
+26
+445
+119
+478
+south-wind
+south-wind
+-25
+25
+-9.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+26
+409
+118
 442
-204
+west-wind
+west-wind
+-25
+25
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+310
+156
+440
+174
+Genetic Algorithm settings
+10
+0.0
+1
+
+SLIDER
+310
+175
+434
+208
 max-generations
 max-generations
 0
@@ -910,10 +1110,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-316
+310
+215
+436
 248
-443
-281
+crossover-rate
+crossover-rate
+0
+1
+0.7
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+310
+256
+436
+289
 mutation-rate
 mutation-rate
 0
@@ -925,141 +1140,131 @@ NIL
 HORIZONTAL
 
 SLIDER
-317
-208
-442
-241
-crossover-rate
-crossover-rate
+310
+297
+438
+330
+mutation-magnitude
+mutation-magnitude
 0
 1
-0.7
+0.2
 0.01
 1
 NIL
 HORIZONTAL
 
-TEXTBOX
-320
-150
-449
-168
-Genetic Algortithm settings
-10
-0.0
-1
-
-MONITOR
-326
-402
-447
-447
-Current Generation
-generation
-17
-1
-11
-
 SLIDER
-224
-408
-316
-441
-gen-tick
-gen-tick
+301
+452
+454
+485
+repeat-tournament-num
+repeat-tournament-num
 0
 100
-5.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-98
-411
-220
+350
 437
+393
+455
+Selection\n
+10
+0.0
+1
+
+TEXTBOX
+491
+463
+620
+489
 After how many ticks new generation occurs->
 10
 0.0
 1
 
 SLIDER
-236
-317
-385
-350
-repeat-tournament-num
-repeat-tournament-num
+616
+459
+708
+492
+gen-tick
+gen-tick
 0
 100
-10.0
+15.0
 1
 1
 NIL
 HORIZONTAL
+
+MONITOR
+720
+453
+841
+498
+Current Generation
+generation
+17
+1
+11
 
 TEXTBOX
-293
-300
-340
-318
-Selection
-10
-0.0
-1
-
-SLIDER
-178
-172
-294
-205
-turn-sensitivity
-turn-sensitivity
-0
-1
-0.4
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-178
-209
-295
-242
-speed-sensitivity
-speed-sensitivity
-0
-1
-0.7
-0.1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-181
-151
-296
-169
+171
+155
+283
+173
 Neural Network settings
 10
 0.0
 1
 
 SLIDER
-169
-246
-305
-279
+167
+176
+283
+209
+turn-sensitivity
+turn-sensitivity
+0
+1
+0.2
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+166
+215
+283
+248
+speed-sensitivity
+speed-sensitivity
+0
+1
+0.5
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+161
+254
+290
+287
 num-chromosomes
 num-chromosomes
 0
-200
-30.0
+500
+40.0
 1
 1
 NIL
@@ -1068,64 +1273,27 @@ HORIZONTAL
 @#$#@#$#@
 ## WHAT IS IT?
 
-An environmental change simulator with predator-prey agents acting as organisms that try to survive extreme conditions. This project was created as part of Edinburgh Napier University honours project for BSc Games Development course.
-
-The purpose of this simulation is to research predator-prey behaviour and improve its behaviour with the use of neural networks and genetic algorithm. The ultimate goal is to create agents that can learn fast to changing environments and become smarter with each generation while trying to survive extreme environmental conditions.
-
-There are two environmental change scenarios implemented:
-
-1. Wildfire, where sugar(food) patches get burnt and become inedible. The agents can still walk on these patches; however, they will not any food, and therefore die from starvation.
-
-2. Flood/Tsunami event. In this simulation, sugar patches become soaked and inedible. Furthermore, assuming that its deep water, agents cannot walk on it and so they instantly die(drown in water).
-
-Finally, the research conducted in the honours project was about evolutionary algorithms and NEAT, rtNEAT; therefore, an attempt was made to create a simulation in NetLogo that would have a similar behaviour to rtNEAT.
+A predator-prey simulation
 
 ## HOW IT WORKS
 
-Patches: There are few types of patches - water/fire/sugar/inedible.
-
-1. Water - spreads on sugar patches, making them inedible. Flood pressure is added from neighbouring already flooded patches. Any agent in its path will die.
-
-2. Fire - similar behaviour. No pressure, but wind is added that pushes fire to spread across other sugar patches. Wind direction depends on user input.
-
-3. Sugar - this patch only holds random amount of sugar.
-
-4. Inedible - this patch is either damaged by fire/water or it was initialised at the start like this. It holds 0 sugar.
-
-Prey agents: It uses neural network to learn its environment and genetic algorithm to evolve and reproduce. Prey organisms main objective is to gather sugar while evading predators and using energy efficiently. Furthermore, prey should learn the changing environment in a fast manner and with each new generation, adapt new behaviour that would contribute towards a better fitness score.
-
-Predator agents: It works in a similar way and uses a neural network and genetic algorithm hybrid. The only difference is that predator agents don't eat sugar, instead they hunt prey and are more aggressive by nature.
-
-Both predator-prey should avoid water and adapt to changing environment.
+(what rules the agents use to create the overall behavior of the model)
 
 ## HOW TO USE IT
 
-Right hand side: use monitors and plots to observe predator-prey level change (birth, death, total) and follow sugar levels.
-
-Left hand side: 
-
-1. Settings - adjust sliders to create the environment with more/less predator/preys, adjust their carrying capacity. In addition, use maxEnergy to make sure that agents dont have too much energy (otherwise they would probably start reproduce infinitely). Lastly, sugar-density slider adjusts the distribution of sugar in the simulation.
-
-2. GA settings - adjust maxGeneration for the maximum number of generations that will occur in the simulation. The number of current generation can be seen in the monitor. Also, gen-tick specifies after how many "ticks" a new generation will occur.
-
-Next, crossover-rate is the probability that two selected parent chromosomes will exchange parts of their genetic material to create new offsprings. Mutation-rate is the probability that a single gene within a chromosome will randomly change its value. By adjusting these sliders, we can increase the variation of chromosomes that new offsprings will have.
-
-3. Fitness settings - efficiency-weight, adjust this slider to increase the "reward" for an agent. Better efficiency weight indicates that the agent is efficiently using its sugar/energy. Positive impact.
-Distance-weight on the other hand is a negative impact and the lower slider value indicates that an agent is close to a hazard/enemy, and it should learn to keep more distance.
-
-4. Selection settings - adjust the slider to increase/decrease the amount of parents should be selected in "selection" phase. (Tournament selection)
+(how to use the model, including a description of each of the items in the Interface tab)
 
 ## THINGS TO NOTICE
 
-The behaviour of both prey and predator agents.....MORE TO FOLLOW
+(suggested things for the user to notice while running the model)
 
 ## THINGS TO TRY
 
-Feel free to experiment with the simulation by adjusting various sliders.
+(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
 
 ## EXTENDING THE MODEL
 
-This simulation could be further extended by improving current neural network and genetic algorithm hybrid behaviour. It should eventually replicate NEAT/rtNEAT, also possibly creating a bridge and connecting NetLogo with a 3rd party machine learning framework (using JAVA) that could majorly improve the simulation.
+(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
 
 ## NETLOGO FEATURES
 
@@ -1136,6 +1304,8 @@ This simulation could be further extended by improving current neural network an
 (models in the NetLogo Models Library and elsewhere which are of related interest)
 
 ## CREDITS AND REFERENCES
+
+(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
 default
 true

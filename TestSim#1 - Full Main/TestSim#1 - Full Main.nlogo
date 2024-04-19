@@ -923,9 +923,9 @@ HORIZONTAL
 
 SLIDER
 0
-371
+311
 147
-404
+344
 fire-spread-probability
 fire-spread-probability
 0
@@ -1031,9 +1031,9 @@ selected-simulation
 
 SLIDER
 0
-333
+273
 147
-366
+306
 flooding-probability
 flooding-probability
 0
@@ -1046,9 +1046,9 @@ HORIZONTAL
 
 TEXTBOX
 3
-313
+253
 159
-331
+271
 Environmental Change settings
 10
 0.0
@@ -1056,9 +1056,9 @@ Environmental Change settings
 
 SLIDER
 26
-445
+385
 119
-478
+418
 south-wind
 south-wind
 -25
@@ -1071,9 +1071,9 @@ HORIZONTAL
 
 SLIDER
 26
-409
+349
 118
-442
+382
 west-wind
 west-wind
 -25
@@ -1140,25 +1140,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-310
-297
-438
-330
-mutation-magnitude
-mutation-magnitude
-0
-1
-0.2
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-301
-452
-454
-485
+225
+332
+378
+365
 repeat-tournament-num
 repeat-tournament-num
 0
@@ -1170,30 +1155,30 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-350
-437
-393
-455
+274
+317
+317
+335
 Selection\n
 10
 0.0
 1
 
 TEXTBOX
-491
-463
-620
-489
+467
+461
+596
+487
 After how many ticks new generation occurs->
 10
 0.0
 1
 
 SLIDER
-616
-459
-708
-492
+592
+457
+684
+490
 gen-tick
 gen-tick
 0
@@ -1205,10 +1190,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-720
-453
-841
-498
+696
+451
+817
+496
 Current Generation
 generation
 17
