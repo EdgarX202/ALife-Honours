@@ -433,8 +433,8 @@ to-report selection [ turtle-pool ]
   report parents
 end
 
-; CROSSOVER + MUTATION
-to-report crossover-mutate [parent1 parent2]
+; CROSSOVER
+to-report crossover [parent1 parent2]
   ; Getting parent chromosomes
   let parent1-chromo [personal-chromo] of parent1
   let parent2-chromo [personal-chromo] of parent2
@@ -443,42 +443,66 @@ to-report crossover-mutate [parent1 parent2]
   let access-weights-parent1 [weights] of parent1-chromo
   let access-weights-parent2 [weights] of parent2-chromo
 
-  let child-chromo1 []
-  let child-chromo2 []
-
   ; One-point crossover
-  let cut-point random length access-weights-parent1
+  let cut-point random length access-weights-parent1 - 1
 
-  report (list child-chromo1 child-chromo2)
+   ; Create offspring using parts from each parent
+  let offspring1 (list (sublist access-weights-parent1 0 cut-point) (sublist access-weights-parent2 cut-point (length access-weights-parent2)))
+
+  ; Return newly created offsprings
+  report offspring1
 end
 
-
-
-to hatch-offspring [mut-chromo]
-  ; Kill current generation
-  ask turtles [die]
-
-  hatch 1 [
-    set energy random 60 + 20 ; Give random energy 60-80
-    set birth-generation generation
-    set color red
-    rt random-float 360
-    fd 1
-  ]
+; MUTATION
+to-report mutate [weights-list]
+ ; let mutated-weights (map [weight ->
+                       ;    ifelse random-float 1 < mutation-rate [
+                         ;   random-float 2 - 1
+                          ; ] [
+                          ;   weight
+                       ;    ]
+                   ;      ] weights-list)
+ ; report mutated-weights
 end
 
 ; EVOLUTION <---------
 to evolution
   ; Select parents
-  ;let prey-parents selection preys
-  ;let predator-parents selection predators
+  let prey-parents selection preys
 
-  ; Crossover + Mutation
+  ; Get individuals parents from the list
+ ; let parent1-prey item 0 prey-parents
+  ;let parent2-prey item 1 prey-parents
 
+  let old-generation turtles with [true]
+
+  ; Perform crossover
+  ;let offspring-chromo-prey crossover parent1-prey parent2-prey
+
+  ; Select one of the parents
+  let selected-prey one-of prey-parents
 
   ; Hatching
+  ask preys [
+  hatch 1 [
+    set color orange
+    set size 1.5
+    set vision 50
+    set speed 1
+    set energy random 50 + 20
+    set birth-generation generation
+    set fitness energy
+    set personal-chromo [personal-chromo] of selected-prey
+    setxy random-xcor random-ycor
+    ]
+  ]
 
+  ; Kill the old generation
+  ;ask old-generation [ die ]
 
+  ; Perform mutation
+  ;let offspring-prey-mutated mutate offspring-chromo-prey
+  ;let offspring-predator-mutated mutate offspring-chromo-predator
 end
 
 ; TEST SIMULATION #3 - ONLY PREY

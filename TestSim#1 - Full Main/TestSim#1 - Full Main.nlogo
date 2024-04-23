@@ -149,12 +149,6 @@ to feedforward-prey [chromo]
          set i i + 1 ; Increment outer loop
     ]
 
-    ; DEBUG START <-------
-    ; print access-weights
-    ; print hidden-layer
-    ; DEBUG END <---------
-
-
     ; Variables for the output layer
     let access-weights-output [weights] of chromo ; Get the weights of a chromosome
     let k 0 ; Index for outer output-layer loop
@@ -173,10 +167,6 @@ to feedforward-prey [chromo]
       set output-layer-prey replace-item k output-layer-prey sigmoid-output-layer ; Replace output layer items with calculated final values
       set k k + 1 ; Increment outer loop
     ]
-
-    ; DEBUG START <-------
-    ; print output-layer-prey
-    ; DEBUG END <---------
   ]
 end
 
@@ -214,12 +204,6 @@ to feedforward-predator [chromo]
          set i i + 1 ; Increment outer loop
     ]
 
-    ; DEBUG START <-------
-    ; print access-weights
-    ; print hidden-layer-predator
-    ; DEBUG END <---------
-
-
     ; Variables for the output layer
     let access-weights-output [weights] of chromo ; Get the weights of a chromosome
     let k 0 ; Index for outer output-layer loop
@@ -238,10 +222,6 @@ to feedforward-predator [chromo]
       set output-layer-predator replace-item k output-layer-predator sigmoid-output-layer ; Replace output layer items with calculated final values
       set k k + 1 ; Increment outer loop
     ]
-
-    ; DEBUG START <-------
-    ; print output-layer-predator
-    ; DEBUG END <---------
   ]
 end
 
@@ -345,9 +325,11 @@ to go
 
    if ticks mod gen-tick = 0 and generation < max-generations [ ; gen-tick(slider) ticks = 1 generation
         evolution ; Selection + Crossover + Mutation + Hatching
+
+        ; Calculate turtle fitness
         ask preys [ calculate-fitness ticks ]
         ask predators [ calculate-fitness ticks ]
-        set generation generation + 1
+        set generation generation + 1 ; Increment generation
   ]
 
   ask preys[
@@ -452,18 +434,16 @@ end
 to move-prey
   let outputs output-layer-prey ; Store all outputs
 
+  ; Assign outputs to variables
   let turn-left-output item 0 outputs
   let turn-right-output item 1 outputs
   let accelerate-output item 2 outputs
   let decelerate-output item 3 outputs
 
+  ; Assign outputs to variables
   let water-hazard one-of patches with [ pcolor = blue - 1.5 ] in-radius vision
   let distance-to-predator calculate-distance one-of predators
   let predator-target one-of predators in-radius vision
-
-  ; DEBUG START <----------
-  ; print outputs
-  ; DEBUG END <------------
 
   ; If predator is in sight
   ifelse distance-to-predator != nobody and distance-to-predator < 15 [
@@ -505,17 +485,15 @@ end
 to move-predator
   let outputs output-layer-predator ; Store all outputs
 
+   ; Assign outputs to variables
   let turn-left-output item 0 outputs
   let turn-right-output item 1 outputs
   let accelerate-output item 2 outputs
   let decelerate-output item 3 outputs
 
+  ; Assign outputs to variables
   let distance-to-prey calculate-distance one-of preys
   let prey-target one-of preys in-radius vision
-
-  ; DEBUG START <----------
-  ; print outputs
-  ; DEBUG END <------------
 
   ; If prey is in sight
   ifelse prey-target != nobody [
@@ -587,10 +565,11 @@ end
 
 ;-----------------------------CHECK-DEATH---------------------------------
 to check-death
+  ; If turtle has no sugar left, increment their death count and kill it
   ask preys [
-    if energy <= 0 [ ; If prey has no sugar left
-   set prey-death-count (prey-death-count + 1) ; Increase death count
-   die ; Remove the turtle
+    if energy <= 0 [
+   set prey-death-count (prey-death-count + 1)
+   die
     ]
   ]
   ask predators [
@@ -634,8 +613,8 @@ to-report selection [ turtle-pool ]
   report parents
 end
 
-; CROSSOVER + MUTATION
-to-report crossover-mutate [parent1 parent2]
+; CROSSOVER
+to-report crossover [parent1 parent2]
   ; Getting parent chromosomes
   let parent1-chromo [personal-chromo] of parent1
   let parent2-chromo [personal-chromo] of parent2
@@ -644,42 +623,84 @@ to-report crossover-mutate [parent1 parent2]
   let access-weights-parent1 [weights] of parent1-chromo
   let access-weights-parent2 [weights] of parent2-chromo
 
-  let child-chromo1 []
-  let child-chromo2 []
-
   ; One-point crossover
-  let cut-point random length access-weights-parent1
+  let cut-point random length access-weights-parent1 - 1
 
-  report (list child-chromo1 child-chromo2)
+   ; Create offspring using parts from each parent
+  let offspring1 (list (sublist access-weights-parent1 0 cut-point) (sublist access-weights-parent2 cut-point (length access-weights-parent2)))
+
+  ; Return newly created offsprings
+  report offspring1
 end
 
-
-
-to hatch-offspring [mut-chromo]
-  ; Kill current generation
-  ask turtles [die]
-
-  hatch 1 [
-    set energy random 60 + 20 ; Give random energy 60-80
-    set birth-generation generation
-    set color red
-    rt random-float 360
-    fd 1
-  ]
+; MUTATION
+to-report mutate [weights-list]
+ ; let mutated-weights (map [weight ->
+                       ;    ifelse random-float 1 < mutation-rate [
+                         ;   random-float 2 - 1
+                          ; ] [
+                          ;   weight
+                       ;    ]
+                   ;      ] weights-list)
+ ; report mutated-weights
 end
 
 ; EVOLUTION <---------
 to evolution
   ; Select parents
-  ;let prey-parents selection preys
-  ;let predator-parents selection predators
+  let prey-parents selection preys
+  let predator-parents selection predators
 
-  ; Crossover + Mutation
+  ; Get individuals parents from the list
+ ; let parent1-prey item 0 prey-parents
+  ;let parent2-prey item 1 prey-parents
+ ; let parent1-predator item 0 predator-parents
+ ; let parent2-predator item 1 predator-parents
 
+  let old-generation turtles with [true]
+
+  ; Perform crossover
+  ;let offspring-chromo-prey crossover parent1-prey parent2-prey
+ ; let offspring-chromo-predator crossover parent1-predator parent2-predator
+
+  ; Select one of the parents
+  let selected-prey one-of prey-parents
+  let selected-predator one-of predator-parents
 
   ; Hatching
+  ask preys [
+  hatch 1 [
+    set color orange
+    set size 1.5
+    set vision 50
+    set speed 1
+    set energy random 50 + 20
+    set birth-generation generation
+    set fitness energy
+    set personal-chromo [personal-chromo] of selected-prey
+    setxy random-xcor random-ycor
+    ]
+  ]
+  ask predators [
+  hatch 1 [
+    set color green
+    set size 1.5
+    set vision 50
+    set speed 1
+    set energy random 60 + 20
+    set birth-generation generation
+    set fitness energy
+    set personal-chromo [personal-chromo] of selected-predator
+    setxy random-xcor random-ycor
+    ]
+  ]
 
+  ; Kill the old generation
+  ;ask old-generation [ die ]
 
+  ; Perform mutation
+  ;let offspring-prey-mutated mutate offspring-chromo-prey
+  ;let offspring-predator-mutated mutate offspring-chromo-predator
 end
 
 ; TEST SIMULATION #1 - Full Simulation
@@ -716,7 +737,7 @@ ticks
 BUTTON
 42
 155
-110
+109
 189
 NIL
 go
@@ -756,7 +777,7 @@ initial-prey-number
 initial-prey-number
 0
 50
-8.0
+4.0
 1
 1
 NIL
@@ -965,7 +986,7 @@ initial-predator-number
 initial-predator-number
 0
 50
-5.0
+4.0
 1
 1
 NIL
@@ -1027,7 +1048,7 @@ CHOOSER
 selected-simulation
 selected-simulation
 "Fire/Heat" "Flood/Water"
-1
+0
 
 SLIDER
 0
@@ -1183,7 +1204,7 @@ gen-tick
 gen-tick
 0
 100
-15.0
+30.0
 1
 1
 NIL
