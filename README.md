@@ -11,6 +11,8 @@
  1. Full simulation with NN/GA, predator/prey agents and environmental change in effect.
  2. A simulation without any environmental change.
  3. A simulation without any predators.
- 4. A simulation without NN/GA.
-     
-* MORE TO BE ADDED... </br>
+ 4. A simulation without NN/GA.</br>
+ The Honours project is finished.</br>
+ There's been some performance issues with NetLogo, so there's still some work to be done to make the simulations properly working.
+</br>
+<img src='Poster.png' width='900'> <br>
