@@ -12,7 +12,12 @@
  2. A simulation without any environmental change.
  3. A simulation without any predators.
  4. A simulation without NN/GA.</br>
- The Honours project is finished.</br>
- There's been some performance issues with NetLogo, so there's still some work to be done to make the simulations properly working.
+
+<img src='Simulation.gif' width='600'></br>
+
+After further research, it was determined that NetLogo cannot handle heavy computing and therefore, the simulations with neural network and genetic algorithm will not produce any valuable data.
+NetLogo will simply become very slow as the number of agents increase.</br>
+</br>
+In conclusion, we have answered the main research question and identified the EA that could be used in evolving AI NPCs. We only require a software that could handle neuroevolution and run the simulations smoothly; therefore, through observations and valuable data provided we could confirm that this theory is correct.</br>
 </br>
 <img src='Poster.png' width='900'> <br>
