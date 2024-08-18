@@ -20,6 +20,6 @@ NetLogo will simply become very slow as the number of agents increase.</br>
 </br>
 In conclusion, we have answered the main research question and identified the EA that could be used in evolving AI NPCs. We only require a software that could handle neuroevolution and run the simulations smoothly; therefore, through observations and valuable data provided we could confirm that this theory is correct.</br>
 <br>
-**06/07/24** - After further research, we determined that NetLogo is not powerful enough to run heavy simulations smoothly. Therefore, alternative simulation environment should be chosen.<br>
+**06/07/24** - After further research, we determined that NetLogo is not powerful enough to run heavy simulations smoothly. Therefore, alternative simulation environments should be considered.<br>
 </br>
 <img src='Poster.png' width='900'> <br>
